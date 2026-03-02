@@ -2,13 +2,22 @@
   "name": "@aim/core",
   "version": "0.1.0",
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./dist/index.cjs",
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch"
   },
   "dependencies": {
+    "@aim/adapters": "workspace:*",
     "@aim/shared": "workspace:*",
     "js-yaml": "^4.1.0",
     "pino": "^8.17.0",

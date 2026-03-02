@@ -1,97 +1,111 @@
 /**
- * Installer Type Definitions
+ * Installer type definitions
  */
 
-import type { OS, Arch } from './platform';
-
 /**
- * 安装状态
+ * Task lifecycle status.
  */
 export type InstallStatus =
-  | 'pending' // 等待中
-  | 'downloading' // 下载中
-  | 'downloaded' // 下载完成
-  | 'installing' // 安装中
-  | 'installed' // 安装完成
-  | 'failed' // 失败
-  | 'cancelled'; // 已取消
+  | 'pending'
+  | 'downloading'
+  | 'downloaded'
+  | 'installing'
+  | 'installed'
+  | 'rolling-back'
+  | 'rolled-back'
+  | 'uninstalling'
+  | 'uninstalled'
+  | 'failed'
+  | 'cancelled';
 
 /**
- * 任务类型
+ * Task type.
  */
-export type TaskType = 'install' | 'uninstall' | 'update';
+export type TaskType = 'install' | 'uninstall' | 'update' | 'rollback';
 
 /**
- * 下载进度
+ * Download progress payload.
  */
 export interface DownloadProgress {
-  total: number; // 总字节数
-  downloaded: number; // 已下载字节数
-  percent: number; // 百分比（0-100）
-  speed: number; // 下载速度（字节/秒）
-  eta: number; // 预计剩余时间（秒）
+  total: number;
+  downloaded: number;
+  percent: number;
+  speed: number;
+  eta: number;
 }
 
 /**
- * 安装进度
+ * Installation progress payload.
  */
 export interface InstallProgress {
   status: InstallStatus;
   message: string;
-  percent: number; // 百分比（0-100）
+  percent: number;
   downloadProgress?: DownloadProgress;
 }
 
 /**
- * 安装任务
+ * Per-task console log entry.
+ */
+export interface TaskLogEntry {
+  timestamp: string;
+  level: 'info' | 'warn' | 'error';
+  message: string;
+}
+
+/**
+ * Installation task model.
  */
 export interface InstallTask {
-  id: string; // 任务 ID
-  type: TaskType; // 任务类型
-  toolId: string; // 工具 ID
-  toolName: string; // 工具名称
-  version: string; // 版本号
-  status: InstallStatus; // 状态
-  progress: InstallProgress; // 进度
-  createdAt: string; // 创建时间（ISO 8601）
-  startedAt?: string; // 开始时间
-  completedAt?: string; // 完成时间
-  error?: string; // 错误信息
+  id: string;
+  type: TaskType;
+  toolId: string;
+  toolName: string;
+  version: string;
+  status: InstallStatus;
+  progress: InstallProgress;
+  createdAt: string;
+  startedAt?: string;
+  completedAt?: string;
+  installedPath?: string;
+  rollbackAvailable?: boolean;
+  error?: string;
+  logs?: TaskLogEntry[];
 }
 
 /**
- * 安装选项
+ * Installation options.
  */
 export interface InstallOptions {
-  version?: string; // 指定版本（默认最新稳定版）
-  targetDir?: string; // 安装目录
-  silent?: boolean; // 静默安装
-  force?: boolean; // 强制安装（覆盖已存在）
+  version?: string;
+  targetDir?: string;
+  silent?: boolean;
+  force?: boolean;
 }
 
 /**
- * 下载选项
+ * Download options.
  */
 export interface DownloadOptions {
-  url: string; // 下载 URL
-  destPath: string; // 目标路径
-  sha256?: string; // SHA256 校验和
-  timeout?: number; // 超时时间（毫秒）
-  onProgress?: (progress: DownloadProgress) => void; // 进度回调
+  url: string;
+  destPath: string;
+  sha256?: string;
+  timeout?: number;
+  onProgress?: (progress: DownloadProgress) => void;
 }
 
 /**
- * 下载结果
+ * Download result.
  */
 export interface DownloadResult {
   success: boolean;
   filePath?: string;
   error?: string;
-  verified?: boolean; // 是否通过校验
+  verified?: boolean;
 }
 
 /**
- * 安装结果
+ * Install / uninstall / rollback result.
  */
 export interface InstallResult {
   success: boolean;

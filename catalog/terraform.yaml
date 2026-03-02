@@ -1,0 +1,47 @@
+schemaVersion: "1.0.0"
+id: "terraform"
+name: "Terraform"
+description: "Infrastructure as code tool"
+homepage: "https://www.terraform.io"
+tags:
+  - infra
+  - devops
+  - cli
+
+versionSource:
+  type: githubReleases
+  repo: hashicorp/terraform
+
+assets:
+  - platform: win
+    arch: x64
+    url: "https://releases.hashicorp.com/terraform/{version}/terraform_{version}_windows_amd64.zip"
+    type: zip
+
+  - platform: win
+    arch: arm64
+    url: "https://releases.hashicorp.com/terraform/{version}/terraform_{version}_windows_arm64.zip"
+    type: zip
+
+  - platform: mac
+    arch: x64
+    url: "https://releases.hashicorp.com/terraform/{version}/terraform_{version}_darwin_amd64.zip"
+    type: zip
+
+  - platform: mac
+    arch: arm64
+    url: "https://releases.hashicorp.com/terraform/{version}/terraform_{version}_darwin_arm64.zip"
+    type: zip
+
+install:
+  type: archive
+  requiresAdmin: false
+  targetDir: "{managed}/terraform/{version}"
+  postInstall:
+    - type: addToPath
+      value: "{targetDir}"
+
+validate:
+  command: "terraform version"
+  parse: regex
+  pattern: "Terraform v([\\d.]+)"

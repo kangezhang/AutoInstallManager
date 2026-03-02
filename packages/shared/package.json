@@ -2,10 +2,15 @@
   "name": "@aim/shared",
   "version": "0.1.0",
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./dist/index.js",
+    ".": {
+      "require": "./dist/index.cjs",
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
     "./types/*": "./dist/types/*.js",
     "./contracts/*": "./dist/contracts/*.js",
     "./utils/*": "./dist/utils/*.js"

@@ -31,6 +31,12 @@
   margin-bottom: 1rem;
 }
 
+.task-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .task-info h3 {
   margin: 0 0 0.25rem 0;
   font-size: 1.25rem;
@@ -67,6 +73,26 @@
 .status-installed {
   background: #d4edda;
   color: #155724;
+}
+
+.status-rolling-back {
+  background: #ffe7c2;
+  color: #7a4f01;
+}
+
+.status-rolled-back {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.status-uninstalling {
+  background: #ffe7c2;
+  color: #7a4f01;
+}
+
+.status-uninstalled {
+  background: #f0f0f0;
+  color: #666;
 }
 
 .status-failed {
@@ -126,9 +152,38 @@
   background: #c82333;
 }
 
+.btn-primary {
+  background: #007bff;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #5a6268;
+}
+
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.btn-console {
+  background: #343a40;
+  color: white;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+}
+
+.btn-console:hover:not(:disabled) {
+  background: #1f2327;
 }
 
 .loading, .error, .empty {
@@ -139,4 +194,80 @@
 
 .error {
   color: #dc3545;
+}
+
+.task-console-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 1rem;
+}
+
+.task-console-modal {
+  width: min(920px, 100%);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  background: #101826;
+  color: #d2dae7;
+  border-radius: 10px;
+  border: 1px solid #2e3b50;
+  box-shadow: 0 24px 45px rgba(0, 0, 0, 0.35);
+}
+
+.task-console-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid #2e3b50;
+}
+
+.task-console-header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.task-console-close {
+  border: none;
+  background: transparent;
+  color: #8ea0bc;
+  cursor: pointer;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.task-console-close:hover {
+  color: #ffffff;
+}
+
+.task-console-meta {
+  padding: 0.55rem 1rem;
+  color: #9db0cc;
+  font-size: 0.83rem;
+  border-bottom: 1px solid #2e3b50;
+}
+
+.task-console-content {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  overflow: auto;
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  flex: 1;
+}
+
+.task-console-actions {
+  border-top: 1px solid #2e3b50;
+  padding: 0.75rem 1rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }

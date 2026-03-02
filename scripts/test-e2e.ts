@@ -43,7 +43,7 @@ async function runE2ETest() {
     if (tools.length > 0) {
       const firstTool = tools[0];
       console.log(`   Testing with: ${firstTool.name}`);
-      const resolver = VersionResolverFactory.create(firstTool.versionSource);
+      const resolver = VersionResolverFactory.getResolver(firstTool.versionSource);
       const versions = await resolver.resolve(firstTool.versionSource);
       console.log(`✅ Resolved ${versions.length} versions`);
       if (versions.length > 0) {

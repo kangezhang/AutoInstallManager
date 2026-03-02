@@ -11,6 +11,8 @@ interface InstallerState {
   createTask: (toolId: string, version: string) => Promise<InstallTask>;
   startTask: (taskId: string) => Promise<void>;
   cancelTask: (taskId: string) => Promise<void>;
+  rollbackTool: (toolId: string) => Promise<void>;
+  uninstallTool: (toolId: string) => Promise<void>;
 }
 
 export const useInstallerStore = create<InstallerState>((set, get) => ({
@@ -69,6 +71,30 @@ export const useInstallerStore = create<InstallerState>((set, get) => ({
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Failed to cancel task',
+      });
+    }
+  },
+
+  rollbackTool: async (toolId: string) => {
+    if (!window.electronAPI) return;
+    try {
+      await window.electronAPI.installer.rollback(toolId);
+      await get().loadTasks();
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to rollback tool',
+      });
+    }
+  },
+
+  uninstallTool: async (toolId: string) => {
+    if (!window.electronAPI) return;
+    try {
+      await window.electronAPI.installer.uninstall(toolId);
+      await get().loadTasks();
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to uninstall tool',
       });
     }
   },

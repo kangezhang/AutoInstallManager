@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "pnpm --filter @aim/renderer dev & pnpm --filter @aim/main dev",
     "build": "pnpm -r build",
+    "start": "node scripts/run-electron.cjs apps/main/dist/index.cjs",
+    "electron": "pnpm build && node scripts/run-electron.cjs apps/main/dist/index.cjs",
+    "postinstall": "node scripts/ensure-electron.cjs && electron-builder install-app-deps",
     "test": "vitest",
     "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write .",

@@ -76,8 +76,8 @@ export function Dashboard() {
             <button className="action-btn" onClick={() => navigate('/catalog')}>
               Browse Catalog
             </button>
-            <button className="action-btn secondary" onClick={() => navigate('/environment')}>
-              View Environment
+            <button className="action-btn secondary" onClick={() => navigate('/catalog')}>
+              Refresh Tool Status
             </button>
           </div>
         </section>

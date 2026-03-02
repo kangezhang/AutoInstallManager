@@ -14,6 +14,7 @@ export const IPC_CHANNELS = {
   CATALOG_GET_TOOL: 'catalog:getTool',
   CATALOG_LIST_TOOLS: 'catalog:listTools',
   CATALOG_GET_VERSIONS: 'catalog:getVersions',
+  CATALOG_ADD_TOOL_DEFINITION: 'catalog:addToolDefinition',
 
   // Scanner
   SCAN_START: 'scan:start',

@@ -4,6 +4,7 @@ import type {
   ToolDefinition,
   ScanReport,
   InstallTask,
+  InstallResult,
   InstallProgress,
   DownloadProgress
 } from '@aim/shared';
@@ -23,6 +24,8 @@ const api = {
       ipcRenderer.invoke('catalog:listTools', filters) as Promise<ToolDefinition[]>,
     getVersions: (toolId: string) =>
       ipcRenderer.invoke('catalog:getVersions', toolId) as Promise<string[]>,
+    addToolDefinition: (content: string, options?: { overwrite?: boolean }) =>
+      ipcRenderer.invoke('catalog:addToolDefinition', content, options) as Promise<ToolDefinition>,
   },
 
   // Scanner API
@@ -36,8 +39,10 @@ const api = {
   installer: {
     createTask: (toolId: string, version: string, options?: any) =>
       ipcRenderer.invoke('install:create', toolId, version, options) as Promise<InstallTask>,
-    start: (taskId: string) => ipcRenderer.invoke('install:start', taskId) as Promise<void>,
+    start: (taskId: string) => ipcRenderer.invoke('install:start', taskId) as Promise<InstallResult>,
     cancel: (taskId: string) => ipcRenderer.invoke('install:cancel', taskId) as Promise<void>,
+    rollback: (toolId: string) => ipcRenderer.invoke('install:rollback', toolId) as Promise<InstallResult>,
+    uninstall: (toolId: string) => ipcRenderer.invoke('install:uninstall', toolId) as Promise<InstallResult>,
     getStatus: (taskId: string) => ipcRenderer.invoke('install:status', taskId) as Promise<InstallTask | null>,
     listTasks: () => ipcRenderer.invoke('install:list') as Promise<InstallTask[]>,
   },

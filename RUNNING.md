@@ -1,5 +1,31 @@
 # 运行指南
 
+## 快速开始（生产模式）
+
+### 1. 安装依赖
+```bash
+pnpm install
+```
+
+### 2. 构建并运行
+```bash
+pnpm electron
+```
+
+这会自动构建所有包并启动 Electron 应用。
+
+或者分步执行：
+
+```bash
+# 构建所有包
+pnpm build
+
+# 启动 Electron
+pnpm start
+```
+
+---
+
 ## 开发环境运行
 
 ### 1. 安装依赖

@@ -1,0 +1,42 @@
+schemaVersion: "1.0.0"
+id: "cmake"
+name: "CMake"
+description: "Cross-platform build system generator"
+homepage: "https://cmake.org"
+tags:
+  - build
+  - cpp
+  - tooling
+
+versionSource:
+  type: githubReleases
+  repo: Kitware/CMake
+
+assets:
+  - platform: win
+    arch: x64
+    url: "https://github.com/Kitware/CMake/releases/download/v{version}/cmake-{version}-windows-x86_64.zip"
+    type: zip
+
+  - platform: mac
+    arch: x64
+    url: "https://github.com/Kitware/CMake/releases/download/v{version}/cmake-{version}-macos-universal.tar.gz"
+    type: tar.gz
+
+  - platform: mac
+    arch: arm64
+    url: "https://github.com/Kitware/CMake/releases/download/v{version}/cmake-{version}-macos-universal.tar.gz"
+    type: tar.gz
+
+install:
+  type: archive
+  requiresAdmin: false
+  targetDir: "{managed}/cmake/{version}"
+  postInstall:
+    - type: addToPath
+      value: "{targetDir}/cmake-{version}-windows-x86_64/bin"
+
+validate:
+  command: "cmake --version"
+  parse: regex
+  pattern: "cmake version ([\\d.]+)"

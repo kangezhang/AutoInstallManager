@@ -25,12 +25,6 @@ export function Sidebar() {
           Catalog
         </Link>
         <Link
-          to="/environment"
-          className={`nav-item ${isActive('/environment') ? 'active' : ''}`}
-        >
-          Environment
-        </Link>
-        <Link
           to="/tasks"
           className={`nav-item ${isActive('/tasks') ? 'active' : ''}`}
         >

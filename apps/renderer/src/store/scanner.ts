@@ -9,6 +9,7 @@ interface ScannerState {
   // Actions
   startScan: () => Promise<void>;
   scanTool: (toolId: string) => Promise<void>;
+  loadLastReport: () => Promise<ScanReport | null>;
 }
 
 export const useScannerStore = create<ScannerState>((set) => ({
@@ -44,6 +45,24 @@ export const useScannerStore = create<ScannerState>((set) => ({
         error: error instanceof Error ? error.message : 'Scan failed',
         scanning: false,
       });
+    }
+  },
+
+  loadLastReport: async () => {
+    if (!window.electronAPI) {
+      set({ error: 'Electron API not available' });
+      return null;
+    }
+
+    try {
+      const report = await window.electronAPI.scanner.getReport();
+      set({ report });
+      return report;
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to load scan report',
+      });
+      return null;
     }
   },
 }));

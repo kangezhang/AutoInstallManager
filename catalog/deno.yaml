@@ -1,0 +1,47 @@
+schemaVersion: "1.0.0"
+id: "deno"
+name: "Deno"
+description: "Modern JavaScript and TypeScript runtime"
+homepage: "https://deno.com"
+tags:
+  - runtime
+  - javascript
+  - typescript
+
+versionSource:
+  type: githubReleases
+  repo: denoland/deno
+
+assets:
+  - platform: win
+    arch: x64
+    url: "https://github.com/denoland/deno/releases/download/v{version}/deno-x86_64-pc-windows-msvc.zip"
+    type: zip
+
+  - platform: win
+    arch: arm64
+    url: "https://github.com/denoland/deno/releases/download/v{version}/deno-aarch64-pc-windows-msvc.zip"
+    type: zip
+
+  - platform: mac
+    arch: x64
+    url: "https://github.com/denoland/deno/releases/download/v{version}/deno-x86_64-apple-darwin.zip"
+    type: zip
+
+  - platform: mac
+    arch: arm64
+    url: "https://github.com/denoland/deno/releases/download/v{version}/deno-aarch64-apple-darwin.zip"
+    type: zip
+
+install:
+  type: archive
+  requiresAdmin: false
+  targetDir: "{managed}/deno/{version}"
+  postInstall:
+    - type: addToPath
+      value: "{targetDir}"
+
+validate:
+  command: "deno --version"
+  parse: regex
+  pattern: "deno ([\\d.]+)"

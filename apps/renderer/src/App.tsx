@@ -1,14 +1,13 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Sidebar } from './components/layout/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { Catalog } from './pages/Catalog';
-import { Environment } from './pages/Environment';
 import { Tasks } from './pages/Tasks';
 import './App.css';
 
 export function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <div className="app-container">
         <Sidebar />
         <main className="main-content">
@@ -16,11 +15,11 @@ export function App() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/catalog" element={<Catalog />} />
-            <Route path="/environment" element={<Environment />} />
+            <Route path="/environment" element={<Navigate to="/catalog" replace />} />
             <Route path="/tasks" element={<Tasks />} />
           </Routes>
         </main>
       </div>
-    </BrowserRouter>
+    </HashRouter>
   );
 }

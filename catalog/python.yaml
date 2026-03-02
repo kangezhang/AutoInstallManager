@@ -1,0 +1,44 @@
+schemaVersion: "1.0.0"
+id: "python"
+name: "Python"
+description: "General-purpose programming language and runtime"
+homepage: "https://www.python.org"
+tags:
+  - runtime
+  - language
+  - scripting
+
+versionSource:
+  type: githubReleases
+  repo: python/cpython
+
+assets:
+  - platform: win
+    arch: x64
+    url: "https://github.com/python/cpython/releases/download/v{version}/python-{version}-embed-amd64.zip"
+    type: zip
+
+  - platform: win
+    arch: arm64
+    url: "https://github.com/python/cpython/releases/download/v{version}/python-{version}-embed-arm64.zip"
+    type: zip
+
+  - platform: mac
+    arch: x64
+    url: "https://github.com/python/cpython/releases/download/v{version}/python-{version}-macos11.pkg"
+    type: pkg
+
+  - platform: mac
+    arch: arm64
+    url: "https://github.com/python/cpython/releases/download/v{version}/python-{version}-macos11.pkg"
+    type: pkg
+
+install:
+  type: archive
+  requiresAdmin: false
+  targetDir: "{managed}/python/{version}"
+
+validate:
+  command: "python --version"
+  parse: regex
+  pattern: "Python ([\\d.]+)"

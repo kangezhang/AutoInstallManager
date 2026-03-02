@@ -126,6 +126,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@aim/adapters':
+        specifier: workspace:*
+        version: link:../adapters
       '@aim/shared':
         specifier: workspace:*
         version: link:../shared

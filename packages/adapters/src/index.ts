@@ -9,5 +9,5 @@ export * from './scanner/macos-pkgutil.js';
 export * from './installer/windows-installer.js';
 export * from './installer/macos-installer.js';
 export * from './installer/archive-installer.js';
-
+export * from './installer/path-env.js';
 
