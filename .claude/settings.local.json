@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm list --depth=0)",
+      "Bash(pnpm -r list --depth=0)",
+      "Bash(pnpm add zod)",
+      "Bash(pnpm add js-yaml)",
+      "Bash(pnpm add -D @types/js-yaml)",
+      "Bash(pnpm --filter @aim/core add js-yaml)",
+      "Bash(pnpm --filter @aim/core add -D @types/js-yaml)",
+      "Bash(pnpm build)",
+      "Bash(pnpm --filter @aim/core build)",
+      "Bash(pnpm --filter @aim/adapters build)",
+      "Bash(pnpm --filter @aim/core add zod)",
+      "Bash(pnpm validate:catalog)",
+      "Bash(tsx scripts/validate-catalog.ts)",
+      "Bash(npx tsx scripts/validate-catalog.ts)",
+      "Bash(npx tsx d:/Projects/AutoInstallManager/scripts/validate-catalog.ts)",
+      "Bash(git add .)"
+    ]
+  }
+}

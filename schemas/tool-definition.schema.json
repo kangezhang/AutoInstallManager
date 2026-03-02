@@ -1,0 +1,236 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://aim.dev/schemas/tool-definition.schema.json",
+  "title": "Tool Definition",
+  "description": "Schema for defining installable tools in AutoInstallManager",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "id",
+    "name",
+    "versionSource",
+    "assets",
+    "install",
+    "validate"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "description": "Schema version for compatibility tracking",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "examples": ["1.0.0"]
+    },
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for the tool",
+      "pattern": "^[a-z0-9-]+$",
+      "examples": ["nodejs", "git", "cmake"]
+    },
+    "name": {
+      "type": "string",
+      "description": "Display name of the tool",
+      "minLength": 1,
+      "examples": ["Node.js", "Git", "CMake"]
+    },
+    "description": {
+      "type": "string",
+      "description": "Brief description of the tool"
+    },
+    "homepage": {
+      "type": "string",
+      "format": "uri",
+      "description": "Official homepage URL"
+    },
+    "tags": {
+      "type": "array",
+      "description": "Tags for categorization",
+      "items": {
+        "type": "string"
+      },
+      "examples": [["runtime", "javascript"], ["vcs"], ["build-tool"]]
+    },
+    "versionSource": {
+      "type": "object",
+      "description": "How to fetch available versions",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["githubReleases", "staticList", "customJsonFeed"]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "type": { "const": "githubReleases" } }
+          },
+          "then": {
+            "required": ["repo"],
+            "properties": {
+              "repo": {
+                "type": "string",
+                "pattern": "^[^/]+/[^/]+$",
+                "description": "GitHub repository in format owner/repo"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "staticList" } }
+          },
+          "then": {
+            "required": ["versions"],
+            "properties": {
+              "versions": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Static list of available versions"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "customJsonFeed" } }
+          },
+          "then": {
+            "required": ["url"],
+            "properties": {
+              "url": {
+                "type": "string",
+                "format": "uri",
+                "description": "URL to JSON feed of versions"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "assets": {
+      "type": "array",
+      "description": "Available download assets for different platforms",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["platform", "arch", "url", "type"],
+        "properties": {
+          "platform": {
+            "type": "string",
+            "enum": ["win", "mac", "linux"],
+            "description": "Target platform"
+          },
+          "arch": {
+            "type": "string",
+            "enum": ["x64", "arm64", "ia32"],
+            "description": "Target architecture"
+          },
+          "url": {
+            "type": "string",
+            "description": "Download URL (may contain {version} placeholder)"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["msi", "exe", "pkg", "zip", "tar.gz", "dmg"],
+            "description": "Asset file type"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "SHA256 checksum (optional, may contain {version} placeholder)"
+          }
+        }
+      }
+    },
+    "install": {
+      "type": "object",
+      "description": "Installation configuration",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["msi", "exe", "pkg", "archive"],
+          "description": "Installation method"
+        },
+        "requiresAdmin": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether installation requires admin/sudo privileges"
+        },
+        "silentArgs": {
+          "type": "string",
+          "description": "Arguments for silent installation (for msi/exe/pkg)"
+        },
+        "targetDir": {
+          "type": "string",
+          "description": "Target directory for archive installations"
+        },
+        "postInstall": {
+          "type": "array",
+          "description": "Post-installation commands",
+          "items": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["addToPath", "createShim", "runCommand"]
+              },
+              "value": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "validate": {
+      "type": "object",
+      "description": "Validation configuration",
+      "required": ["command"],
+      "properties": {
+        "command": {
+          "type": "string",
+          "description": "Command to validate installation"
+        },
+        "parse": {
+          "type": "string",
+          "enum": ["semver", "regex", "exact"],
+          "default": "semver",
+          "description": "How to parse version from command output"
+        },
+        "pattern": {
+          "type": "string",
+          "description": "Regex pattern for version extraction (when parse=regex)"
+        }
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "description": "Tool dependencies",
+      "items": {
+        "type": "object",
+        "required": ["id", "type"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Dependency tool ID"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["hard", "soft", "platformOnly"],
+            "description": "Dependency type"
+          },
+          "platforms": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["win", "mac", "linux"]
+            },
+            "description": "Platforms where this dependency applies (for platformOnly)"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,41 @@
+schemaVersion: "1.0.0"
+id: "git"
+name: "Git"
+description: "Distributed version control system"
+homepage: "https://git-scm.com"
+tags:
+  - vcs
+  - development
+
+versionSource:
+  type: githubReleases
+  repo: git/git
+
+assets:
+  - platform: win
+    arch: x64
+    url: "https://github.com/git-for-windows/git/releases/download/v{version}.windows.1/PortableGit-{version}-64-bit.7z.exe"
+    type: exe
+
+  - platform: mac
+    arch: x64
+    url: "https://sourceforge.net/projects/git-osx-installer/files/git-{version}-intel-universal-mavericks.dmg/download"
+    type: dmg
+
+  - platform: mac
+    arch: arm64
+    url: "https://sourceforge.net/projects/git-osx-installer/files/git-{version}-arm64-monterey.dmg/download"
+    type: dmg
+
+install:
+  type: archive
+  requiresAdmin: false
+  targetDir: "{managed}/git/{version}"
+  postInstall:
+    - type: addToPath
+      value: "{targetDir}/bin"
+
+validate:
+  command: "git --version"
+  parse: regex
+  pattern: "git version ([\\d.]+)"

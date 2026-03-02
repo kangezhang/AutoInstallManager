@@ -1,0 +1,45 @@
+schemaVersion: "1.0.0"
+id: "nodejs"
+name: "Node.js"
+description: "JavaScript runtime built on Chrome's V8 JavaScript engine"
+homepage: "https://nodejs.org"
+tags:
+  - runtime
+  - javascript
+
+versionSource:
+  type: githubReleases
+  repo: nodejs/node
+
+assets:
+  - platform: win
+    arch: x64
+    url: "https://nodejs.org/dist/v{version}/node-v{version}-win-x64.zip"
+    type: zip
+
+  - platform: win
+    arch: arm64
+    url: "https://nodejs.org/dist/v{version}/node-v{version}-win-arm64.zip"
+    type: zip
+
+  - platform: mac
+    arch: x64
+    url: "https://nodejs.org/dist/v{version}/node-v{version}-darwin-x64.tar.gz"
+    type: tar.gz
+
+  - platform: mac
+    arch: arm64
+    url: "https://nodejs.org/dist/v{version}/node-v{version}-darwin-arm64.tar.gz"
+    type: tar.gz
+
+install:
+  type: archive
+  requiresAdmin: false
+  targetDir: "{managed}/nodejs/{version}"
+  postInstall:
+    - type: addToPath
+      value: "{targetDir}/bin"
+
+validate:
+  command: "node -v"
+  parse: semver

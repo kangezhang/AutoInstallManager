@@ -1,0 +1,22 @@
+{
+  "name": "@aim/core",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch"
+  },
+  "dependencies": {
+    "@aim/shared": "workspace:*",
+    "js-yaml": "^4.1.0",
+    "pino": "^8.17.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "tsup": "^8.0.0",
+    "typescript": "^5.3.0"
+  }
+}
