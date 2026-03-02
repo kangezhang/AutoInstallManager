@@ -5,6 +5,40 @@
 ✅ Week 1: 架构冻结 (100%)
 ✅ Week 2: 工程骨架 (100%)
 ✅ Week 3: 合同与校验 (100%)
+✅ Week 4: Catalog MVP (100%)
+
+## Week 4 完成内容
+
+### 1. Catalog 加载器
+- ✅ [packages/core/src/catalog/loader.ts](packages/core/src/catalog/loader.ts) - Catalog 加载器
+  - 加载所有工具定义
+  - 平台和架构过滤
+  - 缓存机制
+  - 按 ID 和标签搜索
+
+### 2. 版本源解析器
+- ✅ [packages/core/src/catalog/version-resolver.ts](packages/core/src/catalog/version-resolver.ts) - 版本解析
+  - GitHub Releases 集成
+  - 静态版本列表支持
+  - 版本排序和筛选
+  - 缓存机制（5分钟 TTL）
+
+### 3. 测试脚本
+- ✅ [scripts/test-catalog.ts](scripts/test-catalog.ts) - Catalog 功能测试
+
+### 4. 验证功能
+```bash
+# 运行测试脚本
+npx tsx d:/Projects/AutoInstallManager/scripts/test-catalog.ts
+
+# 预期输出
+🔍 Testing Catalog Loader...
+✅ Loaded 2 tools
+✅ Loaded 2 tools for Windows x64
+✅ Found Node.js
+✅ Found 30 versions from GitHub
+✅ All tests completed!
+```
 
 ## Week 3 完成内容
 
@@ -202,23 +236,29 @@ pnpm package
 | `pnpm format` | 格式化代码 |
 | `pnpm typecheck` | 类型检查 |
 | `npx tsx d:/Projects/AutoInstallManager/scripts/validate-catalog.ts` | 校验 catalog 文件 |
+| `npx tsx d:/Projects/AutoInstallManager/scripts/test-catalog.ts` | 测试 catalog 功能 |
 | `pnpm -r list` | 列出所有包的依赖 |
 
 ---
 
-## 下一步开发（Week 4）
+## 下一步开发（Week 5）
 
-完成 Week 3 后，可以开始 Week 4 的工作：
+完成 Week 4 后，可以开始 Week 5 的工作：
 
-1. **Catalog 加载器**
-   - 实现 catalog 文件加载
-   - 平台过滤（win/mac + x64/arm64）
-   - 版本源解析（GitHub Releases）
+1. **Scanner MVP**
+   - 实现环境扫描器
+   - PATH 探测和版本检测
+   - 健康状态评估
 
-2. **版本管理**
-   - 实现 GitHub Releases 版本获取
-   - 版本列表缓存
-   - 版本比较和排序
+2. **平台适配器**
+   - Windows 注册表扫描
+   - macOS pkgutil 集成
+   - 统一的扫描接口
+
+3. **健康报告模型**
+   - 工具状态定义
+   - 冲突检测逻辑
+   - 建议生成
 
 
 ---

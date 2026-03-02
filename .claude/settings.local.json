@@ -16,7 +16,12 @@
       "Bash(tsx scripts/validate-catalog.ts)",
       "Bash(npx tsx scripts/validate-catalog.ts)",
       "Bash(npx tsx d:/Projects/AutoInstallManager/scripts/validate-catalog.ts)",
-      "Bash(git add .)"
+      "Bash(git add .)",
+      "Bash(git commit:*)",
+      "Bash(pnpm --filter @aim/core add semver)",
+      "Bash(pnpm --filter @aim/core add -D @types/semver)",
+      "Bash(npx tsx d:/Projects/AutoInstallManager/scripts/test-catalog.ts)",
+      "Bash(git add -A)"
     ]
   }
 }

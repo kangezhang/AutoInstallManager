@@ -80,17 +80,23 @@ pnpm format
 - Catalog 校验器实现
 - 示例工具定义（Node.js, Git）
 
-🚧 **Week 4: Catalog MVP** (进行中)
+✅ **Week 4: Catalog MVP** (100%)
 - Catalog 加载器
-- 平台过滤
-- 版本源解析
+- 平台过滤（win/mac + x64/arm64）
+- GitHub Releases 版本解析
+- 版本比较和排序
+
+🚧 **Week 5: Scanner MVP** (进行中)
+- 环境扫描器
+- 健康报告模型
+- 冲突检测
 
 ### Phase 0-1（Week 1-4）
 
 - ✅ Week 1: 架构冻结
 - ✅ Week 2: 工程骨架
 - ✅ Week 3: 合同与校验
-- 🚧 Week 4: Catalog MVP
+- ✅ Week 4: Catalog MVP
 
 ### Phase 2（Week 5-6）
 
