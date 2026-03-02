@@ -3,6 +3,7 @@
  * 扫描系统中已安装的开发工具
  */
 
+import { EventEmitter } from 'events';
 import { randomUUID } from 'crypto';
 import type {
   DetectedTool,
@@ -17,8 +18,19 @@ import { findInPath, findAllExecutables, getSystemPaths } from './path-prober';
 import { detectVersion } from './version-detector';
 import { detectConflicts } from './conflict-detector';
 
-export class Scanner {
-  constructor(private platformInfo: PlatformInfo) {}
+export class Scanner extends EventEmitter {
+  private lastReport: ScanReport | null = null;
+
+  constructor(private platformInfo: PlatformInfo) {
+    super();
+  }
+
+  /**
+   * 获取最后一次扫描报告
+   */
+  getLastReport(): ScanReport | null {
+    return this.lastReport;
+  }
 
   /**
    * 扫描单个工具
@@ -113,7 +125,7 @@ export class Scanner {
       errors: detectedTools.filter((t) => t.healthStatus === 'error').length,
     };
 
-    return {
+    const report: ScanReport = {
       scanId,
       timestamp,
       platform: {
@@ -125,5 +137,11 @@ export class Scanner {
       conflicts,
       summary,
     };
+
+    // 保存报告并发射事件
+    this.lastReport = report;
+    this.emit('complete', report);
+
+    return report;
   }
 }

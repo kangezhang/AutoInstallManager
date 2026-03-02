@@ -3,6 +3,7 @@
  * 协调下载、安装和验证流程
  */
 
+import { EventEmitter } from 'events';
 import { randomUUID } from 'crypto';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -21,10 +22,12 @@ import {
   type VersionInfo,
 } from '../catalog/version-resolver';
 
-export class Installer {
+export class Installer extends EventEmitter {
   private tasks = new Map<string, InstallTask>();
 
-  constructor(private platformInfo: PlatformInfo) {}
+  constructor(private platformInfo: PlatformInfo) {
+    super();
+  }
 
   /**
    * 创建安装任务
@@ -74,6 +77,13 @@ export class Installer {
     const task = this.tasks.get(taskId);
     if (task) {
       Object.assign(task, updates);
+      // 发射进度事件
+      if (updates.progress) {
+        this.emit('progress', {
+          taskId,
+          ...updates.progress,
+        });
+      }
     }
   }
 
@@ -150,6 +160,12 @@ export class Installer {
         destPath: downloadPath,
         sha256: asset.sha256,
         onProgress: (progress) => {
+          // 发射下载进度事件
+          this.emit('downloadProgress', {
+            taskId: task.id,
+            ...progress,
+          });
+
           this.updateTask(task.id, {
             progress: {
               status: 'downloading',

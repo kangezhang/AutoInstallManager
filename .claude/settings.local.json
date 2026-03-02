@@ -24,7 +24,12 @@
       "Bash(git add -A)",
       "Bash(git add docs/)",
       "Bash(tsx scripts/test-scanner.ts)",
-      "Bash(pnpm exec tsx scripts/test-scanner.ts)"
+      "Bash(pnpm exec tsx scripts/test-scanner.ts)",
+      "Bash(pnpm add zustand)",
+      "Bash(pnpm install)",
+      "Bash(tsx scripts/test-e2e.ts)",
+      "Bash(pnpm tsx scripts/test-e2e.ts)",
+      "Bash(pnpm -r build)"
     ]
   }
 }
