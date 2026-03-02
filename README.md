@@ -86,10 +86,16 @@ pnpm format
 - GitHub Releases 版本解析
 - 版本比较和排序
 
-🚧 **Week 5: Scanner MVP** (进行中)
+✅ **Week 5: Scanner MVP** (100%)
 - 环境扫描器
-- 健康报告模型
+- 版本检测和 PATH 探测
+- 平台适配器（Windows 注册表、macOS pkgutil）
 - 冲突检测
+
+🚧 **Week 6: Installer MVP** (进行中)
+- 安装器核心
+- 平台安装器
+- 任务管理
 
 ### Phase 0-1（Week 1-4）
 
@@ -100,9 +106,8 @@ pnpm format
 
 ### Phase 2（Week 5-6）
 
-- Scanner MVP
-- 健康报告模型
-- 冲突检测
+- ✅ Week 5: Scanner MVP
+- 🚧 Week 6: Installer MVP
 
 ## 文档
 

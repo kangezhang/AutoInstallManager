@@ -273,25 +273,58 @@ AutoInstallManager/
 
 ---
 
-## 下一步（Week 5-6）
+### Week 5: Scanner MVP ✅ (100%)
 
-### 目标：Scanner MVP
+**完成时间**: 2026-03-02
 
-1. **环境扫描器**
-   - 实现 Scanner 核心
-   - PATH 探测
-   - 版本检测
-   - 健康状态评估
+#### 1. Scanner 类型定义
+- ✅ ToolStatus, HealthStatus 枚举
+- ✅ DetectedTool, ToolConflict, ScanReport 接口
+- ✅ ScanOptions, VersionDetectionResult 接口
 
-2. **平台适配器**
-   - Windows 注册表扫描
-   - macOS pkgutil 集成
-   - 统一的扫描接口
+#### 2. Scanner 核心功能
+- ✅ 版本检测器（detectVersion, detectVersions）
+- ✅ PATH 探测器（findInPath, findAllExecutables）
+- ✅ Scanner 类（scanTool, scanTools）
 
-3. **健康报告模型**
-   - 工具状态定义
-   - 冲突检测逻辑
-   - 建议生成
+#### 3. 平台适配器
+- ✅ Windows 注册表扫描器
+- ✅ macOS pkgutil 扫描器
+
+#### 4. 冲突检测
+- ✅ 重复安装检测
+- ✅ 路径冲突检测
+
+#### 5. 测试脚本
+- ✅ Scanner 功能测试（test-scanner.ts）
+  - 成功检测 Git v2.51.0
+  - 成功检测 Node.js v22.19.0
+  - 所有测试通过 ✅
+
+#### 6. 文档
+- ✅ Week 5 总结文档
+- ✅ 实施进度更新
+
+---
+
+## 下一步（Week 6）
+
+### 目标：Installer MVP
+
+1. **安装器核心**
+   - 下载管理器
+   - 安装流程控制
+   - 进度报告
+
+2. **平台安装器**
+   - Windows MSI/EXE 安装器
+   - macOS PKG/DMG 安装器
+   - Archive 解压安装器
+
+3. **任务管理**
+   - 任务队列
+   - 任务状态跟踪
+   - 任务取消和重试
 
 ---
 
@@ -324,16 +357,24 @@ AutoInstallManager/
 - [x] 版本排序正确
 - [x] 所有测试通过
 
+### Week 5 验证 ✅
+- [x] Scanner 可以检测已安装工具
+- [x] 版本检测正常工作（Git v2.51.0, Node.js v22.19.0）
+- [x] PATH 探测正常工作
+- [x] 冲突检测正常工作
+- [x] 测试脚本成功运行
+- [x] 所有包构建成功
+
 ---
 
 ## 统计数据
 
-- **总文件数**: 60+
-- **代码行数**: ~3000+
+- **总文件数**: 70+
+- **代码行数**: ~3600+
 - **包数量**: 5（shared + core + adapters + main + renderer）
-- **完成进度**: Week 1-4 (100% of Phase 0-1)
+- **完成进度**: Week 1-5 (100% of Phase 0-2)
 - **用时**: 1 天
-- **Git 提交**: 2 次（Week 3, Week 4）
+- **Git 提交**: 3 次（Week 3, Week 4, Week 5）
 
 ---
 
@@ -345,7 +386,11 @@ AutoInstallManager/
 ✅ 基础 UI 框架和路由
 ✅ 完整的数据合同和校验体系
 ✅ Catalog 加载和版本解析系统
+✅ 环境扫描和冲突检测系统
 ✅ 清晰的模块边界和依赖关系
+✅ 完善的文档和 ADR
+
+**Phase 0-2 (Week 1-5) 已全部完成，项目具备完整的 Catalog 和 Scanner 功能，可以开始实现 Installer 功能！** 🎉
 ✅ 完善的文档和 ADR
 
 **Phase 0-1 (Week 1-4) 已全部完成，项目具备坚实的基础架构，可以开始实现 Scanner 和 Installer 功能！** 🎉

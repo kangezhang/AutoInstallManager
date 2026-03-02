@@ -199,25 +199,83 @@
 
 ---
 
-## Week 5-6: Scanner MVP 📅 (待开始)
+## Week 5: Scanner MVP ✅ (100%)
+
+**完成时间**: 2026-03-02
+
+### 已完成
+
+#### 1. Scanner 类型定义 ✅
+- [x] ToolStatus, HealthStatus 枚举
+- [x] DetectedTool 接口
+- [x] ToolConflict 接口
+- [x] ScanReport 接口
+- [x] ScanOptions 接口
+- [x] VersionDetectionResult 接口
+
+#### 2. Scanner 核心功能 ✅
+- [x] 版本检测器（version-detector.ts）
+  - detectVersion() - 单个版本检测
+  - detectVersions() - 批量版本检测
+- [x] PATH 探测器（path-prober.ts）
+  - getSystemPaths() - 获取系统 PATH
+  - findInPath() - 在 PATH 中查找
+  - findAllExecutables() - 查找所有实例
+- [x] Scanner 类（scanner.ts）
+  - scanTool() - 扫描单个工具
+  - scanTools() - 扫描多个工具
+
+#### 3. 平台适配器 ✅
+- [x] Windows 注册表扫描器（windows-registry.ts）
+  - scanWindowsRegistry() - 扫���注册表
+  - findInRegistry() - 搜索程序
+- [x] macOS pkgutil 扫描器（macos-pkgutil.ts）
+  - listInstalledPackages() - 列出包
+  - getPackageInfo() - 获取包信息
+  - findPackage() - 搜索包
+
+#### 4. 冲突检测 ✅
+- [x] 冲突检测器（conflict-detector.ts）
+  - detectDuplicateInstallations() - 检测重复安装
+  - detectPathConflicts() - 检测路径冲突
+  - detectConflicts() - 检测所有冲突
+
+#### 5. 测试脚本 ✅
+- [x] Scanner 测试脚本（test-scanner.ts）
+  - 平台检测测试
+  - Catalog 加载测试
+  - 环境扫描测试
+  - 冲突检测测试
+  - 所有测试通过 ✅
+
+### 验证标准 ✅
+- [x] Scanner 可以检测已安装工具
+- [x] 版本检测正常工作
+- [x] PATH 探测正常工作
+- [x] 冲突检测正常工作
+- [x] 测试脚本成功运行
+- [x] 构建成功
+
+---
+
+## Week 6: Installer MVP 📅 (待开始)
 
 ### 待完成
 
-#### 1. 环境扫描器
-- [ ] Scanner 核心实现
-- [ ] PATH 探测
-- [ ] 版本检测
-- [ ] 健康状态评估
+#### 1. 安装器核心
+- [ ] 下载管理器
+- [ ] 安装流程控制
+- [ ] 进度报告
 
-#### 2. 平台适配器
-- [ ] Windows 注册表扫描
-- [ ] macOS pkgutil 集成
-- [ ] 统一的扫描接口
+#### 2. 平台安装器
+- [ ] Windows MSI/EXE 安装器
+- [ ] macOS PKG/DMG 安装器
+- [ ] Archive 解压安装器
 
-#### 3. 健康报告模型
-- [ ] 工具状态定义
-- [ ] 冲突检测逻辑
-- [ ] 建议生成
+#### 3. 任务管理
+- [ ] 任务队列
+- [ ] 任务状态跟踪
+- [ ] 任务取消和重试
 
 ---
 

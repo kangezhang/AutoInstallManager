@@ -21,7 +21,10 @@
       "Bash(pnpm --filter @aim/core add semver)",
       "Bash(pnpm --filter @aim/core add -D @types/semver)",
       "Bash(npx tsx d:/Projects/AutoInstallManager/scripts/test-catalog.ts)",
-      "Bash(git add -A)"
+      "Bash(git add -A)",
+      "Bash(git add docs/)",
+      "Bash(tsx scripts/test-scanner.ts)",
+      "Bash(pnpm exec tsx scripts/test-scanner.ts)"
     ]
   }
 }
