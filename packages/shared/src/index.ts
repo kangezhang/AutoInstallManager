@@ -1,6 +1,7 @@
 // Types
 export * from './types/platform.js';
 export * from './types/scanner.js';
+export * from './types/installer.js';
 
 // Contracts
 export * from './contracts/ipc-protocol.js';
