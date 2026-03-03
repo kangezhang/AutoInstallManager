@@ -39,3 +39,32 @@
   color: white;
   border-left: 3px solid #3498db;
 }
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 12px 0 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.settings-item {
+  display: block;
+  margin: 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  transition: all 0.2s;
+}
+
+.settings-item:hover {
+  color: white;
+  border-color: rgba(255, 255, 255, 0.35);
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.settings-item.active {
+  color: white;
+  border-color: #3498db;
+  background-color: rgba(52, 152, 219, 0.2);
+}

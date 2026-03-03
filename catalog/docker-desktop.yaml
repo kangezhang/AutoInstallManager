@@ -1,0 +1,47 @@
+schemaVersion: "1.0.0"
+id: "docker-desktop"
+name: "Docker Desktop"
+description: "Docker Desktop for local containerized development"
+homepage: "https://www.docker.com/products/docker-desktop/"
+tags:
+  - containers
+  - docker
+  - devops
+
+versionSource:
+  type: staticList
+  versions:
+    - "4.38.0"
+    - "4.37.2"
+    - "4.36.0"
+
+assets:
+  - platform: win
+    arch: x64
+    url: "https://desktop.docker.com/win/main/amd64/{version}/Docker%20Desktop%20Installer.exe"
+    type: exe
+
+  - platform: win
+    arch: arm64
+    url: "https://desktop.docker.com/win/main/arm64/{version}/Docker%20Desktop%20Installer.exe"
+    type: exe
+
+  - platform: mac
+    arch: x64
+    url: "https://desktop.docker.com/mac/main/amd64/{version}/Docker.dmg"
+    type: dmg
+
+  - platform: mac
+    arch: arm64
+    url: "https://desktop.docker.com/mac/main/arm64/{version}/Docker.dmg"
+    type: dmg
+
+install:
+  type: exe
+  requiresAdmin: true
+  silentArgs: "install --quiet"
+
+validate:
+  command: "docker desktop version"
+  parse: regex
+  pattern: "([\\d]+\\.[\\d]+\\.[\\d]+)"

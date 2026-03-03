@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { InstallTask } from '@aim/shared';
 import { useInstallerStore } from '../store';
+import { useI18n } from '../i18n';
 import './Tasks.css';
 
 const formatTimestamp = (iso: string) =>
@@ -46,6 +47,7 @@ const buildTaskConsoleText = (task: InstallTask) => {
 export function Tasks() {
   const { tasks, loading, error, loadTasks, cancelTask, rollbackTool, uninstallTool } =
     useInstallerStore();
+  const { t } = useI18n();
   const [consoleTaskId, setConsoleTaskId] = useState<string | null>(null);
   const consoleTask = useMemo(
     () => tasks.find((task) => task.id === consoleTaskId) ?? null,
@@ -96,7 +98,7 @@ export function Tasks() {
   if (loading && tasks.length === 0) {
     return (
       <div className="tasks">
-        <div className="loading">Loading tasks...</div>
+        <div className="loading">{t('tasks.loading')}</div>
       </div>
     );
   }
@@ -104,7 +106,9 @@ export function Tasks() {
   if (error) {
     return (
       <div className="tasks">
-        <div className="error">Error: {error}</div>
+        <div className="error">
+          {t('tasks.errorPrefix')}: {error}
+        </div>
       </div>
     );
   }
@@ -112,8 +116,8 @@ export function Tasks() {
   return (
     <div className="tasks">
       <div className="tasks-header">
-        <h1>Installation Tasks</h1>
-        <p>Monitor and manage installation tasks</p>
+        <h1>{t('tasks.title')}</h1>
+        <p>{t('tasks.subtitle')}</p>
       </div>
 
       <div className="tasks-list">
@@ -123,7 +127,9 @@ export function Tasks() {
               <div className="task-header">
                 <div className="task-info">
                   <h3>{task.toolName}</h3>
-                  <p>Version: {task.version}</p>
+                  <p>
+                    {t('tasks.version')}: {task.version}
+                  </p>
                 </div>
                 <div className="task-header-right">
                   {task.status === 'failed' && (
@@ -131,7 +137,7 @@ export function Tasks() {
                       className="btn btn-console"
                       onClick={() => handleOpenConsole(task)}
                     >
-                      Console
+                      {t('tasks.consoleOpen')}
                     </button>
                   )}
                   <span className={`task-status status-${task.status}`}>
@@ -154,7 +160,7 @@ export function Tasks() {
 
               {task.error && (
                 <div className="error" style={{ textAlign: 'left', padding: '0.5rem 0' }}>
-                  Error: {task.error}
+                  {t('tasks.errorPrefix')}: {task.error}
                 </div>
               )}
 
@@ -164,7 +170,7 @@ export function Tasks() {
                     className="btn btn-danger"
                     onClick={() => handleCancel(task.id)}
                   >
-                    Cancel
+                    {t('tasks.cancel')}
                   </button>
                 )}
                 {task.status === 'installed' && task.rollbackAvailable && (
@@ -172,7 +178,7 @@ export function Tasks() {
                     className="btn btn-secondary"
                     onClick={() => handleRollback(task.toolId)}
                   >
-                    Rollback
+                    {t('tasks.rollback')}
                   </button>
                 )}
                 {(task.status === 'installed' || task.status === 'rolled-back') && (
@@ -180,14 +186,14 @@ export function Tasks() {
                     className="btn btn-danger"
                     onClick={() => handleUninstall(task.toolId)}
                   >
-                    Uninstall
+                    {t('tasks.uninstall')}
                   </button>
                 )}
               </div>
             </div>
           ))
         ) : (
-          <div className="empty">No tasks available</div>
+          <div className="empty">{t('tasks.empty')}</div>
         )}
       </div>
 
@@ -195,7 +201,7 @@ export function Tasks() {
         <div className="task-console-backdrop" onClick={() => setConsoleTaskId(null)}>
           <div className="task-console-modal" onClick={(event) => event.stopPropagation()}>
             <div className="task-console-header">
-              <h2>Task Console</h2>
+              <h2>{t('tasks.console')}</h2>
               <button
                 className="task-console-close"
                 onClick={() => setConsoleTaskId(null)}
@@ -217,10 +223,10 @@ export function Tasks() {
                     .catch((copyError) => console.error('Failed to copy task console:', copyError));
                 }}
               >
-                Copy
+                {t('tasks.copy')}
               </button>
               <button className="btn btn-primary" onClick={() => setConsoleTaskId(null)}>
-                Close
+                {t('tasks.close')}
               </button>
             </div>
           </div>

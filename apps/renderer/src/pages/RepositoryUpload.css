@@ -1,0 +1,40 @@
+.repo-upload-page {
+  padding: 2rem;
+}
+
+.repo-upload-page-header {
+  margin-bottom: 0.75rem;
+}
+
+.repo-upload-page-header h1 {
+  margin: 0 0 0.4rem;
+  font-size: 2rem;
+}
+
+.repo-upload-page-header p {
+  margin: 0;
+  color: #666;
+}
+
+.repo-upload-page-actions {
+  margin-bottom: 0.9rem;
+}
+
+.repo-upload-page .repo-detail-block {
+  max-width: 860px;
+}
+
+.repo-upload-page .repo-upload-grid select,
+.repo-upload-page .repo-upload-grid input {
+  border: 1px solid #d6d6d6;
+  border-radius: 6px;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+@media (max-width: 900px) {
+  .repo-upload-page {
+    padding: 1rem;
+  }
+}

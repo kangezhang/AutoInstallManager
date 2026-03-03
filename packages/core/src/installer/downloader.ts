@@ -20,7 +20,7 @@ import type {
 export async function downloadFile(
   options: DownloadOptions
 ): Promise<DownloadResult> {
-  const { url, destPath, sha256, timeout = 300000, onProgress } = options;
+  const { url, destPath, sha256, headers, timeout = 300000, onProgress } = options;
 
   try {
     // 确保目标目录存在
@@ -35,6 +35,7 @@ export async function downloadFile(
 
     const response = await fetch(url, {
       signal: controller.signal,
+      headers,
     });
 
     clearTimeout(timeoutId);

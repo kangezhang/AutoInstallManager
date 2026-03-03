@@ -90,6 +90,7 @@ export interface DownloadOptions {
   url: string;
   destPath: string;
   sha256?: string;
+  headers?: Record<string, string>;
   timeout?: number;
   onProgress?: (progress: DownloadProgress) => void;
 }

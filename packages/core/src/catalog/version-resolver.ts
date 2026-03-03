@@ -8,8 +8,12 @@ export interface VersionInfo {
   url?: string;
 }
 
+export interface ResolveVersionOptions {
+  githubToken?: string;
+}
+
 export interface VersionSourceResolver {
-  resolve(source: VersionSource): Promise<VersionInfo[]>;
+  resolve(source: VersionSource, options?: ResolveVersionOptions): Promise<VersionInfo[]>;
 }
 
 /**
@@ -19,37 +23,44 @@ export class GitHubReleasesResolver implements VersionSourceResolver {
   private cache: Map<string, { versions: VersionInfo[]; cachedAt: Date }> = new Map();
   private cacheTTL = 5 * 60 * 1000; // 5 minutes
 
-  async resolve(source: VersionSource): Promise<VersionInfo[]> {
+  async resolve(source: VersionSource, options?: ResolveVersionOptions): Promise<VersionInfo[]> {
     if (source.type !== 'githubReleases') {
       throw new Error('Invalid source type for GitHubReleasesResolver');
     }
 
     const { repo } = source;
+    const token = options?.githubToken?.trim() || '';
+    const cacheKey = `${repo}#${token ? 'auth' : 'public'}`;
 
     // Check cache
-    const cached = this.cache.get(repo);
+    const cached = this.cache.get(cacheKey);
     if (cached && Date.now() - cached.cachedAt.getTime() < this.cacheTTL) {
       return cached.versions;
     }
 
     // Fetch from GitHub API
-    const versions = await this.fetchFromGitHub(repo);
+    const versions = await this.fetchFromGitHub(repo, token || undefined);
 
     // Cache the result
-    this.cache.set(repo, { versions, cachedAt: new Date() });
+    this.cache.set(cacheKey, { versions, cachedAt: new Date() });
 
     return versions;
   }
 
-  private async fetchFromGitHub(repo: string): Promise<VersionInfo[]> {
+  private async fetchFromGitHub(repo: string, githubToken?: string): Promise<VersionInfo[]> {
     const url = `https://api.github.com/repos/${repo}/releases`;
 
     try {
+      const headers: Record<string, string> = {
+        Accept: 'application/vnd.github.v3+json',
+        'User-Agent': 'AutoInstallManager',
+      };
+      if (githubToken?.trim()) {
+        headers.Authorization = `Bearer ${githubToken.trim()}`;
+      }
+
       const response = await fetch(url, {
-        headers: {
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'AutoInstallManager',
-        },
+        headers,
       });
 
       if (!response.ok) {
@@ -161,4 +172,3 @@ export function getLatestVersion(versions: VersionInfo[], includePrerelease = fa
   const sorted = sortVersions(filtered);
   return sorted[0] || null;
 }
-

@@ -72,11 +72,14 @@ interface PostInstallContext {
   managed: string;
 }
 
+type GitHubTokenProvider = (toolDef: ToolDefinition) => Promise<string | undefined>;
+
 export class Installer extends EventEmitter {
   private tasks = new Map<string, InstallTask>();
   private installedTools: Record<string, InstalledToolState> = {};
   private stateFilePath: string;
   private catalogTools = new Map<string, ToolDefinition>();
+  private githubTokenProvider?: GitHubTokenProvider;
 
   constructor(private platformInfo: PlatformInfo) {
     super();
@@ -104,6 +107,10 @@ export class Installer extends EventEmitter {
 
   setCatalogTools(tools: ToolDefinition[]): void {
     this.catalogTools = new Map(tools.map((tool) => [tool.id, tool]));
+  }
+
+  setGitHubTokenProvider(provider: GitHubTokenProvider): void {
+    this.githubTokenProvider = provider;
   }
 
   getTask(taskId: string): InstallTask | undefined {
@@ -217,12 +224,20 @@ export class Installer extends EventEmitter {
       });
 
       const downloadUrl = this.resolveVersionTemplate(asset.url, targetVersion);
-      const fileName = downloadUrl.split('/').pop() || 'download';
+      const githubToken = await this.resolveToolGitHubToken(toolDef);
+      const downloadRequest = await this.resolveDownloadRequest(
+        toolDef,
+        targetVersion,
+        downloadUrl,
+        githubToken
+      );
+      const fileName = this.resolveDownloadFileName(downloadUrl, downloadRequest.url);
       downloadPath = join(tmpdir(), 'autoinstall', task.id, fileName);
-      this.appendTaskLog(task.id, 'info', `Downloading from ${downloadUrl}`);
+      this.appendTaskLog(task.id, 'info', `Downloading from ${downloadRequest.url}`);
 
       const downloadResult = await downloadFile({
-        url: downloadUrl,
+        url: downloadRequest.url,
+        headers: downloadRequest.headers,
         destPath: downloadPath,
         sha256: asset.sha256,
         onProgress: (progress) => {
@@ -678,23 +693,58 @@ export class Installer extends EventEmitter {
     requestedVersion: string
   ): Promise<string> {
     if (requestedVersion && requestedVersion !== 'latest') {
-      return requestedVersion;
+      const normalizedRequested = this.normalizeVersion(requestedVersion);
+      const versions = await this.resolveAvailableVersions(toolDef);
+      if (versions.length === 0) {
+        return normalizedRequested;
+      }
+
+      const matched = versions.find(
+        (versionInfo) => this.normalizeVersion(versionInfo.version) === normalizedRequested
+      );
+      if (!matched) {
+        throw new Error(
+          `Requested version ${requestedVersion} is not available for ${toolDef.id}`
+        );
+      }
+
+      return matched.version;
     }
 
-    let versions: VersionInfo[] = [];
-    if (toolDef.versionSource.type === 'githubReleases') {
-      const resolver = new GitHubReleasesResolver();
-      versions = await resolver.resolve(toolDef.versionSource);
-    } else if (toolDef.versionSource.type === 'staticList') {
-      const resolver = new StaticListResolver();
-      versions = await resolver.resolve(toolDef.versionSource);
-    }
-
+    const versions = await this.resolveAvailableVersions(toolDef);
     const stableVersions = sortVersions(versions).filter((v) => !v.prerelease);
     if (stableVersions.length === 0) {
       throw new Error('No stable versions available');
     }
     return stableVersions[0].version;
+  }
+
+  private async resolveAvailableVersions(toolDef: ToolDefinition): Promise<VersionInfo[]> {
+    if (toolDef.versionSource.type === 'githubReleases') {
+      const resolver = new GitHubReleasesResolver();
+      const githubToken = await this.resolveToolGitHubToken(toolDef);
+      return resolver.resolve(toolDef.versionSource, { githubToken });
+    }
+
+    if (toolDef.versionSource.type === 'staticList') {
+      const resolver = new StaticListResolver();
+      return resolver.resolve(toolDef.versionSource);
+    }
+
+    return [];
+  }
+
+  private async resolveToolGitHubToken(toolDef: ToolDefinition): Promise<string | undefined> {
+    if (!this.githubTokenProvider) {
+      return undefined;
+    }
+    try {
+      const token = await this.githubTokenProvider(toolDef);
+      const normalized = token?.trim();
+      return normalized || undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   private async ensureDependenciesInstalled(
@@ -792,6 +842,122 @@ export class Installer extends EventEmitter {
     return template
       .replaceAll('{version}', version)
       .replaceAll('${version}', version);
+  }
+
+  private resolveDownloadFileName(originalUrl: string, resolvedUrl: string): string {
+    const fromOriginal = this.extractFileNameFromUrl(originalUrl);
+    if (fromOriginal) return fromOriginal;
+    const fromResolved = this.extractFileNameFromUrl(resolvedUrl);
+    return fromResolved || 'download';
+  }
+
+  private extractFileNameFromUrl(rawUrl: string): string {
+    try {
+      const parsed = new URL(rawUrl);
+      const token = parsed.pathname.split('/').filter(Boolean).pop() || '';
+      return decodeURIComponent(token);
+    } catch {
+      const token = rawUrl.split('?')[0].split('/').pop() || '';
+      return token;
+    }
+  }
+
+  private buildGitHubApiHeaders(
+    token: string,
+    accept = 'application/vnd.github+json'
+  ): Record<string, string> {
+    return {
+      Accept: accept,
+      Authorization: `Bearer ${token}`,
+      'User-Agent': 'AutoInstallManager',
+      'X-GitHub-Api-Version': '2022-11-28',
+    };
+  }
+
+  private async fetchGitHubReleaseByTag(
+    repo: string,
+    tag: string,
+    token: string
+  ): Promise<
+    | {
+        id: number;
+        tag_name: string;
+        assets: Array<{ id: number; name: string; url: string; browser_download_url?: string }>;
+      }
+    | null
+  > {
+    const response = await fetch(
+      `https://api.github.com/repos/${repo}/releases/tags/${encodeURIComponent(tag)}`,
+      {
+        method: 'GET',
+        headers: this.buildGitHubApiHeaders(token),
+      }
+    );
+
+    if (response.status === 404) {
+      return null;
+    }
+    if (!response.ok) {
+      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+    }
+
+    return (await response.json()) as {
+      id: number;
+      tag_name: string;
+      assets: Array<{ id: number; name: string; url: string; browser_download_url?: string }>;
+    };
+  }
+
+  private async resolveDownloadRequest(
+    toolDef: ToolDefinition,
+    targetVersion: string,
+    resolvedDownloadUrl: string,
+    githubToken?: string
+  ): Promise<{ url: string; headers?: Record<string, string> }> {
+    if (!githubToken) {
+      return { url: resolvedDownloadUrl };
+    }
+
+    const token = githubToken.trim();
+    if (!token) {
+      return { url: resolvedDownloadUrl };
+    }
+
+    if (toolDef.versionSource.type !== 'githubReleases') {
+      return { url: resolvedDownloadUrl };
+    }
+
+    const repo = toolDef.versionSource.repo;
+    const assetName = this.extractFileNameFromUrl(resolvedDownloadUrl);
+    if (!assetName) {
+      return {
+        url: resolvedDownloadUrl,
+        headers: { Authorization: `Bearer ${token}`, 'User-Agent': 'AutoInstallManager' },
+      };
+    }
+
+    const candidateTags = new Set<string>([targetVersion, `v${targetVersion}`]);
+    for (const tag of candidateTags) {
+      const release = await this.fetchGitHubReleaseByTag(repo, tag, token);
+      if (!release) {
+        continue;
+      }
+
+      const asset = release.assets.find((item) => item.name === assetName);
+      if (!asset) {
+        continue;
+      }
+
+      return {
+        url: asset.url,
+        headers: this.buildGitHubApiHeaders(token, 'application/octet-stream'),
+      };
+    }
+
+    return {
+      url: resolvedDownloadUrl,
+      headers: { Authorization: `Bearer ${token}`, 'User-Agent': 'AutoInstallManager' },
+    };
   }
 
   private async prepareTargetDir(targetDir: string, force: boolean): Promise<string | undefined> {

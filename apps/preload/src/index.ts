@@ -6,7 +6,16 @@ import type {
   InstallTask,
   InstallResult,
   InstallProgress,
-  DownloadProgress
+  DownloadProgress,
+  ReleaseUploadRequest,
+  ReleaseUploadResult,
+  ReleaseDiscoverRequest,
+  ReleaseDiscoverResult,
+  GitHubAccountListResult,
+  GitHubAccountUpsertRequest,
+  GitHubAccountSummary,
+  GitHubAccountCredential,
+  GitHubAccountBrowserLoginResult
 } from '@aim/shared';
 
 // 定义暴露给渲染进程的 API
@@ -26,6 +35,8 @@ const api = {
       ipcRenderer.invoke('catalog:getVersions', toolId) as Promise<string[]>,
     addToolDefinition: (content: string, options?: { overwrite?: boolean }) =>
       ipcRenderer.invoke('catalog:addToolDefinition', content, options) as Promise<ToolDefinition>,
+    removeToolDefinition: (toolId: string) =>
+      ipcRenderer.invoke('catalog:removeToolDefinition', toolId) as Promise<void>,
   },
 
   // Scanner API
@@ -45,6 +56,31 @@ const api = {
     uninstall: (toolId: string) => ipcRenderer.invoke('install:uninstall', toolId) as Promise<InstallResult>,
     getStatus: (taskId: string) => ipcRenderer.invoke('install:status', taskId) as Promise<InstallTask | null>,
     listTasks: () => ipcRenderer.invoke('install:list') as Promise<InstallTask[]>,
+  },
+
+  // Release API
+  release: {
+    pickAssetFile: () =>
+      ipcRenderer.invoke('release:pickAssetFile') as Promise<string | null>,
+    uploadAsset: (payload: ReleaseUploadRequest) =>
+      ipcRenderer.invoke('release:uploadAsset', payload) as Promise<ReleaseUploadResult>,
+    discoverFromLink: (payload: ReleaseDiscoverRequest) =>
+      ipcRenderer.invoke('release:discoverFromLink', payload) as Promise<ReleaseDiscoverResult>,
+  },
+
+  // GitHub Account API
+  githubAccount: {
+    list: () => ipcRenderer.invoke('githubAccount:list') as Promise<GitHubAccountListResult>,
+    upsert: (payload: GitHubAccountUpsertRequest) =>
+      ipcRenderer.invoke('githubAccount:upsert', payload) as Promise<GitHubAccountSummary>,
+    remove: (accountId: string) =>
+      ipcRenderer.invoke('githubAccount:remove', accountId) as Promise<void>,
+    setDefault: (accountId: string) =>
+      ipcRenderer.invoke('githubAccount:setDefault', accountId) as Promise<void>,
+    getDefaultCredential: () =>
+      ipcRenderer.invoke('githubAccount:getDefaultCredential') as Promise<GitHubAccountCredential | null>,
+    loginWithBrowser: (host?: string) =>
+      ipcRenderer.invoke('githubAccount:loginWithBrowser', host) as Promise<GitHubAccountBrowserLoginResult>,
   },
 
   // Events API

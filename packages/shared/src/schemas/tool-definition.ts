@@ -80,6 +80,13 @@ export const DependencySchema = z.object({
 });
 
 /**
+ * Optional auth binding for remote sources.
+ */
+export const ToolAuthSchema = z.object({
+  githubAccountId: z.string().min(1).optional(),
+});
+
+/**
  * Tool definition schema
  */
 export const ToolDefinitionSchema = z.object({
@@ -94,6 +101,7 @@ export const ToolDefinitionSchema = z.object({
   install: InstallConfigSchema,
   validate: ValidateConfigSchema,
   dependencies: z.array(DependencySchema).optional(),
+  auth: ToolAuthSchema.optional(),
 });
 
 /**
@@ -107,5 +115,5 @@ export type PostInstallAction = z.infer<typeof PostInstallActionSchema>;
 export type InstallConfig = z.infer<typeof InstallConfigSchema>;
 export type ValidateConfig = z.infer<typeof ValidateConfigSchema>;
 export type Dependency = z.infer<typeof DependencySchema>;
+export type ToolAuth = z.infer<typeof ToolAuthSchema>;
 export type ToolDefinition = z.infer<typeof ToolDefinitionSchema>;
-

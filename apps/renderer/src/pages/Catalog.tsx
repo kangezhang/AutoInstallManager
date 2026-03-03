@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { ToolDefinition } from '@aim/shared';
+import type { GitHubAccountSummary, ReleaseDiscoverResult, ToolDefinition } from '@aim/shared';
 import { useCatalogStore, useInstallerStore, useScannerStore } from '../store';
 import './Catalog.css';
 
@@ -36,6 +36,7 @@ interface ToolBuilderState {
   versionSourceType: VersionSourceType;
   staticVersions: string;
   githubRepo: string;
+  githubAccountId: string;
   assets: AssetBuilderRow[];
   installType: InstallType;
   requiresAdmin: boolean;
@@ -62,6 +63,8 @@ interface InstallPresetDefinition {
   postInstallRunCommand: string;
   validateParse: ValidateParseType;
 }
+
+type QuickDiscoveryAsset = ReleaseDiscoverResult['releases'][number]['assets'][number];
 
 const splitCsv = (value: string) =>
   value
@@ -170,6 +173,7 @@ const createDefaultBuilderState = (): ToolBuilderState => {
     versionSourceType: 'staticList',
     staticVersions: '1.0.0',
     githubRepo: '',
+    githubAccountId: '',
     assets: [
       {
         platform: 'win',
@@ -236,6 +240,10 @@ const buildToolDefinitionYaml = (builder: ToolBuilderState) => {
   if (builder.versionSourceType === 'githubReleases') {
     lines.push('  type: githubReleases');
     lines.push(`  repo: ${quoteYaml(builder.githubRepo.trim() || 'owner/repo')}`);
+    if (builder.githubAccountId.trim()) {
+      lines.push('auth:');
+      lines.push(`  githubAccountId: ${quoteYaml(builder.githubAccountId.trim())}`);
+    }
   } else {
     lines.push('  type: staticList');
     lines.push('  versions:');
@@ -310,6 +318,66 @@ const buildToolDefinitionYaml = (builder: ToolBuilderState) => {
   return `${lines.join('\n')}\n`;
 };
 
+const normalizeGitHubRepoInput = (value: string) => {
+  const raw = value.trim().replace(/\.git$/i, '');
+  if (!raw) return '';
+  const urlMatch = raw.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/?$/i);
+  if (urlMatch) return `${urlMatch[1]}/${urlMatch[2]}`;
+  const shortMatch = raw.match(/^([^/]+)\/([^/]+)$/);
+  return shortMatch ? `${shortMatch[1]}/${shortMatch[2]}` : '';
+};
+
+const inferAssetType = (assetName: string): AssetType => {
+  const lower = assetName.toLowerCase();
+  if (lower.endsWith('.tar.gz')) return 'tar.gz';
+  if (lower.endsWith('.msi')) return 'msi';
+  if (lower.endsWith('.exe')) return 'exe';
+  if (lower.endsWith('.pkg')) return 'pkg';
+  if (lower.endsWith('.dmg')) return 'dmg';
+  if (lower.endsWith('.zip')) return 'zip';
+  return 'zip';
+};
+
+const inferAssetPlatform = (assetName: string): AssetPlatform => {
+  const lower = assetName.toLowerCase();
+  if (lower.includes('darwin') || lower.includes('mac') || lower.includes('osx')) return 'mac';
+  if (lower.includes('linux') || lower.includes('ubuntu') || lower.includes('debian')) return 'linux';
+  return 'win';
+};
+
+const inferAssetArch = (assetName: string): AssetArch => {
+  const lower = assetName.toLowerCase();
+  if (lower.includes('arm64') || lower.includes('aarch64')) return 'arm64';
+  if (lower.includes('ia32') || lower.includes('x86') || lower.includes('i386') || lower.includes('386')) {
+    return 'ia32';
+  }
+  return 'x64';
+};
+
+const toVersionTemplateUrl = (downloadUrl: string, tag: string): string => {
+  const encodedTag = encodeURIComponent(tag);
+  const withEncodedTag = downloadUrl.replace(`/download/${encodedTag}/`, '/download/{version}/');
+  return withEncodedTag.replace(`/download/${tag}/`, '/download/{version}/');
+};
+
+const ensureToolId = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-');
+
+const inferToolIdFromAsset = (assetName: string, fallbackName: string): string => {
+  const stripped = assetName
+    .replace(/\.(tar\.gz|zip|exe|msi|pkg|dmg)$/i, '')
+    .replace(/[-_.]v?\d+(?:\.\d+){1,3}(?:[-_.][0-9A-Za-z]+)*/g, '')
+    .replace(/[-_.](windows|win|linux|darwin|mac|osx|amd64|x86_64|x64|arm64|aarch64|ia32|x86)/gi, '')
+    .replace(/[-_.]+$/g, '');
+  return ensureToolId(stripped || fallbackName) || 'tool';
+};
+
+const inferInstallTypeFromAssetType = (assetType: AssetType): InstallType => {
+  if (assetType === 'msi') return 'msi';
+  if (assetType === 'pkg') return 'pkg';
+  if (assetType === 'exe') return 'exe';
+  return 'archive';
+};
+
 export function Catalog() {
   const { tools, loading, error, loadTools } = useCatalogStore();
   const { createTask, startTask, tasks, loadTasks } = useInstallerStore();
@@ -318,6 +386,9 @@ export function Catalog() {
   const [detailVersions, setDetailVersions] = useState<string[]>([]);
   const [detailVersionsLoading, setDetailVersionsLoading] = useState(false);
   const [detailVersionsError, setDetailVersionsError] = useState<string | null>(null);
+  const [selectedDetailVersion, setSelectedDetailVersion] = useState('latest');
+  const [detailInstallLoading, setDetailInstallLoading] = useState(false);
+  const [detailInstallError, setDetailInstallError] = useState<string | null>(null);
   const [addToolOpen, setAddToolOpen] = useState(false);
   const [addToolLoading, setAddToolLoading] = useState(false);
   const [addToolError, setAddToolError] = useState<string | null>(null);
@@ -332,6 +403,21 @@ export function Catalog() {
   const [uninstallConfirmInput, setUninstallConfirmInput] = useState('');
   const [uninstallLoading, setUninstallLoading] = useState(false);
   const [uninstallError, setUninstallError] = useState<string | null>(null);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickAddLoading, setQuickAddLoading] = useState(false);
+  const [quickAddSaving, setQuickAddSaving] = useState(false);
+  const [quickAddError, setQuickAddError] = useState<string | null>(null);
+  const [quickAddSource, setQuickAddSource] = useState('');
+  const [quickAddResult, setQuickAddResult] = useState<ReleaseDiscoverResult | null>(null);
+  const [quickAddSelectedTag, setQuickAddSelectedTag] = useState('');
+  const [quickAddToolId, setQuickAddToolId] = useState('');
+  const [quickAddToolName, setQuickAddToolName] = useState('');
+  const [quickAddAssets, setQuickAddAssets] = useState<AssetBuilderRow[]>([]);
+  const [quickAddInstallType, setQuickAddInstallType] = useState<InstallType>('archive');
+  const [quickAddOverwrite, setQuickAddOverwrite] = useState(false);
+  const [quickAddAccounts, setQuickAddAccounts] = useState<GitHubAccountSummary[]>([]);
+  const [quickAddAccountLoading, setQuickAddAccountLoading] = useState(false);
+  const [quickAddSelectedAccountId, setQuickAddSelectedAccountId] = useState('');
 
   useEffect(() => {
     if (!window.electronAPI) return;
@@ -412,6 +498,7 @@ export function Catalog() {
     ]);
     return new Set(tasks.filter((task) => statusSet.has(task.status)).map((task) => task.toolId));
   }, [tasks]);
+  const detailToolBusy = detailTool ? inProgressToolIds.has(detailTool.id) : false;
 
   const isToolInstalled = (toolId: string) =>
     installedByScanner.has(toolId) || installedByTasks.has(toolId);
@@ -425,6 +512,8 @@ export function Catalog() {
     let cancelled = false;
     setDetailVersionsLoading(true);
     setDetailVersionsError(null);
+    setDetailInstallError(null);
+    setSelectedDetailVersion('latest');
     setDetailVersions([]);
 
     window.electronAPI.catalog
@@ -452,13 +541,13 @@ export function Catalog() {
   useEffect(() => {
     if (!detailTool) return;
     const onEsc = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && !detailInstallLoading) {
         setDetailTool(null);
       }
     };
     window.addEventListener('keydown', onEsc);
     return () => window.removeEventListener('keydown', onEsc);
-  }, [detailTool]);
+  }, [detailTool, detailInstallLoading]);
 
   useEffect(() => {
     if (!addToolOpen) return;
@@ -470,6 +559,73 @@ export function Catalog() {
     window.addEventListener('keydown', onEsc);
     return () => window.removeEventListener('keydown', onEsc);
   }, [addToolOpen, addToolLoading]);
+
+  useEffect(() => {
+    if (!quickAddOpen) return;
+    const onEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !quickAddLoading && !quickAddSaving) {
+        setQuickAddOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onEsc);
+    return () => window.removeEventListener('keydown', onEsc);
+  }, [quickAddOpen, quickAddLoading, quickAddSaving]);
+
+  useEffect(() => {
+    if ((!quickAddOpen && !addToolOpen) || !window.electronAPI?.githubAccount) return;
+
+    let cancelled = false;
+    setQuickAddAccountLoading(true);
+    window.electronAPI.githubAccount
+      .list()
+      .then((result) => {
+        if (cancelled) return;
+        setQuickAddAccounts(result.accounts);
+        const defaultAccountId =
+          result.defaultAccountId ||
+          result.accounts.find((account) => account.isDefault)?.id ||
+          result.accounts[0]?.id ||
+          '';
+
+        setQuickAddSelectedAccountId((current) => {
+          const next = current || defaultAccountId;
+          return result.accounts.some((account) => account.id === next) ? next : '';
+        });
+
+        if (addToolOpen && defaultAccountId) {
+          setToolBuilder((current) => {
+            if (current.githubAccountId.trim()) {
+              return current;
+            }
+            return {
+              ...current,
+              githubAccountId: defaultAccountId,
+            };
+          });
+        }
+      })
+      .catch((accountError) => {
+        if (cancelled) return;
+        const message =
+          accountError instanceof Error
+            ? accountError.message
+            : 'Failed to load GitHub accounts';
+        if (quickAddOpen) {
+          setQuickAddError(message);
+        }
+        if (addToolOpen) {
+          setAddToolError(message);
+        }
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setQuickAddAccountLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [quickAddOpen, addToolOpen]);
 
   useEffect(() => {
     if (!window.electronAPI || !hasInProgressTasks) return;
@@ -496,13 +652,9 @@ export function Catalog() {
     return () => window.removeEventListener('keydown', onEsc);
   }, [uninstallTarget, uninstallLoading]);
 
-  const handleInstall = async (toolId: string) => {
-    try {
-      const task = await createTask(toolId, 'latest');
-      await startTask(task.id);
-    } catch (installError) {
-      console.error('Failed to install tool:', installError);
-    }
+  const handleInstall = async (toolId: string, version = 'latest') => {
+    const task = await createTask(toolId, version);
+    await startTask(task.id);
   };
 
   const handleRefreshStatus = async () => {
@@ -514,6 +666,23 @@ export function Catalog() {
     setUninstallTarget(tool);
     setUninstallConfirmInput('');
     setUninstallError(null);
+  };
+
+  const handleInstallFromDetail = async () => {
+    if (!detailTool) return;
+
+    setDetailInstallLoading(true);
+    setDetailInstallError(null);
+    try {
+      await handleInstall(detailTool.id, selectedDetailVersion || 'latest');
+      setDetailTool(null);
+    } catch (installError) {
+      setDetailInstallError(
+        installError instanceof Error ? installError.message : 'Failed to install selected version'
+      );
+    } finally {
+      setDetailInstallLoading(false);
+    }
   };
 
   const uninstallConfirmationText = uninstallTarget ? `REMOVE ${uninstallTarget.id}` : '';
@@ -669,6 +838,175 @@ export function Catalog() {
     }
   };
 
+  const applyQuickReleaseToState = (
+    result: ReleaseDiscoverResult,
+    tag: string,
+    options?: { preserveIdentity?: boolean; preferSuggestedAsset?: boolean }
+  ) => {
+    const release = result.releases.find((item) => item.tag === tag);
+    if (!release) return;
+
+    const releaseAssets =
+      options?.preferSuggestedAsset &&
+      result.suggestedAssetName &&
+      release.assets.some((asset) => asset.name === result.suggestedAssetName)
+        ? release.assets.filter((asset) => asset.name === result.suggestedAssetName)
+        : release.assets;
+
+    const mappedAssets: AssetBuilderRow[] = releaseAssets.map((asset: QuickDiscoveryAsset) => ({
+      platform: inferAssetPlatform(asset.name),
+      arch: inferAssetArch(asset.name),
+      type: inferAssetType(asset.name),
+      url: toVersionTemplateUrl(asset.downloadUrl, release.tag),
+      sha256: '',
+    }));
+
+    const repoName = result.repo.split('/')[1] || 'tool';
+    const inferredToolId = inferToolIdFromAsset(releaseAssets[0]?.name || '', repoName);
+    const inferredInstallType = inferInstallTypeFromAssetType(mappedAssets[0]?.type || 'zip');
+
+    setQuickAddSelectedTag(tag);
+    setQuickAddAssets(
+      mappedAssets.length > 0
+        ? mappedAssets
+        : [
+            {
+              platform: 'win',
+              arch: 'x64',
+              type: 'exe',
+              url: `https://github.com/${result.repo}/releases/download/{version}/${inferredToolId}.exe`,
+              sha256: '',
+            },
+          ]
+    );
+    setQuickAddInstallType(inferredInstallType);
+    if (!options?.preserveIdentity) {
+      setQuickAddToolId(inferredToolId);
+      setQuickAddToolName(inferredToolId);
+    }
+  };
+
+  const handleOpenQuickAdd = () => {
+    setQuickAddOpen(true);
+    setQuickAddError(null);
+    setQuickAddSource('');
+    setQuickAddResult(null);
+    setQuickAddSelectedTag('');
+    setQuickAddToolId('');
+    setQuickAddToolName('');
+    setQuickAddAssets([]);
+    setQuickAddInstallType('archive');
+    setQuickAddOverwrite(false);
+    setQuickAddSelectedAccountId('');
+  };
+
+  const handleDetectQuickReleases = async () => {
+    if (!window.electronAPI?.release) return;
+    if (!quickAddSource.trim()) {
+      setQuickAddError('Please paste a GitHub repository/release/asset link.');
+      return;
+    }
+
+    setQuickAddLoading(true);
+    setQuickAddError(null);
+    try {
+      const normalizedRepo = normalizeGitHubRepoInput(quickAddSource);
+      const result = await window.electronAPI.release.discoverFromLink({
+        source: normalizedRepo || quickAddSource.trim(),
+        accountId: quickAddSelectedAccountId || undefined,
+      });
+      if (result.releases.length === 0) {
+        throw new Error('No release found for this source.');
+      }
+
+      const preferredTag =
+        result.suggestedTag && result.releases.some((release) => release.tag === result.suggestedTag)
+          ? result.suggestedTag
+          : result.releases[0].tag;
+
+      setQuickAddResult(result);
+      applyQuickReleaseToState(result, preferredTag, { preferSuggestedAsset: true });
+    } catch (discoverError) {
+      setQuickAddResult(null);
+      setQuickAddSelectedTag('');
+      setQuickAddAssets([]);
+      setQuickAddError(
+        discoverError instanceof Error ? discoverError.message : 'Failed to detect releases'
+      );
+    } finally {
+      setQuickAddLoading(false);
+    }
+  };
+
+  const handleSelectQuickRelease = (tag: string) => {
+    if (!quickAddResult) return;
+    applyQuickReleaseToState(quickAddResult, tag, { preserveIdentity: true });
+  };
+
+  const handleSaveQuickTool = async () => {
+    if (!window.electronAPI) return;
+    if (!quickAddResult) {
+      setQuickAddError('Please detect releases first.');
+      return;
+    }
+
+    const toolId = ensureToolId(quickAddToolId);
+    if (!toolId) {
+      setQuickAddError('Tool ID cannot be empty.');
+      return;
+    }
+    if (quickAddAssets.length === 0) {
+      setQuickAddError('No assets found for this release.');
+      return;
+    }
+
+    const base = createDefaultBuilderState();
+    const requiresAdmin = quickAddInstallType === 'msi' || quickAddInstallType === 'pkg';
+    const silentArgs =
+      quickAddInstallType === 'msi' ? '/quiet /norestart' : quickAddInstallType === 'exe' ? '/S' : '';
+
+    const quickBuilder: ToolBuilderState = {
+      ...base,
+      id: toolId,
+      name: quickAddToolName.trim() || toolId,
+      description: '',
+      homepage: `https://github.com/${quickAddResult.repo}`,
+      tags: 'custom,github',
+      versionSourceType: 'githubReleases',
+      staticVersions: '',
+      githubRepo: quickAddResult.repo,
+      githubAccountId: quickAddSelectedAccountId || '',
+      assets: quickAddAssets,
+      installType: quickAddInstallType,
+      requiresAdmin,
+      silentArgs,
+      targetDir: quickAddInstallType === 'archive' ? `{LOCALAPPDATA}/Programs/${toolId}` : '',
+      validateCommand: `${toolId} --version`,
+      validateParse: 'semver',
+      validatePattern: '',
+      dependencies: [],
+      postInstallAddToPath: quickAddInstallType === 'archive' ? '{installedPath}' : '',
+      postInstallCreateShim: '',
+      postInstallRunCommand: '',
+    };
+
+    setQuickAddSaving(true);
+    setQuickAddError(null);
+    try {
+      const yaml = buildToolDefinitionYaml(quickBuilder);
+      const createdTool = await window.electronAPI.catalog.addToolDefinition(yaml, {
+        overwrite: quickAddOverwrite,
+      });
+      await loadTools();
+      setDetailTool(createdTool);
+      setQuickAddOpen(false);
+    } catch (saveError) {
+      setQuickAddError(saveError instanceof Error ? saveError.message : 'Failed to save tool');
+    } finally {
+      setQuickAddSaving(false);
+    }
+  };
+
   const selectedInstallPreset = INSTALL_PRESETS[installPresetType];
 
   if (loading) {
@@ -693,6 +1031,9 @@ export function Catalog() {
         <h1>Tool Catalog</h1>
         <p>Browse and install development tools</p>
         <div className="catalog-header-actions">
+          <button className="btn btn-primary" onClick={handleOpenQuickAdd}>
+            Quick Add from GitHub
+          </button>
           <button className="btn btn-primary" onClick={handleOpenAddTool}>
             Add Custom Tool
           </button>
@@ -767,7 +1108,11 @@ export function Catalog() {
                 {!installed ? (
                   <button
                     className="btn btn-primary"
-                    onClick={() => handleInstall(tool.id)}
+                    onClick={() => {
+                      handleInstall(tool.id).catch((installError) => {
+                        console.error('Failed to install tool:', installError);
+                      });
+                    }}
                     disabled={busy}
                   >
                     {busy ? 'Installing...' : 'Install'}
@@ -813,6 +1158,164 @@ export function Catalog() {
       {tools.length === 0 && !loading && <div className="loading">No tools available</div>}
 
       {scanning && <div className="catalog-scan-hint">Refreshing environment status...</div>}
+
+      {quickAddOpen && (
+        <div
+          className="catalog-modal-backdrop"
+          onClick={() => !quickAddLoading && !quickAddSaving && setQuickAddOpen(false)}
+        >
+          <div className="catalog-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="catalog-modal-header">
+              <h2>Quick Add from GitHub Release</h2>
+              <button
+                className="catalog-modal-close"
+                onClick={() => setQuickAddOpen(false)}
+                aria-label="Close quick add dialog"
+                disabled={quickAddLoading || quickAddSaving}
+              >
+                x
+              </button>
+            </div>
+
+            <div className="catalog-modal-body">
+              <p>Paste repository/release/asset link, detect releases, then save as a tool definition.</p>
+
+              <label className="catalog-quick-account">
+                GitHub Account (optional, for private repos)
+                <select
+                  value={quickAddSelectedAccountId}
+                  onChange={(event) => setQuickAddSelectedAccountId(event.target.value)}
+                  disabled={quickAddLoading || quickAddSaving || quickAddAccountLoading}
+                >
+                  <option value="">Use default / public access</option>
+                  {quickAddAccounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.displayName} ({account.username}@{account.host})
+                      {account.isDefault ? ' [default]' : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="catalog-quick-row">
+                <input
+                  value={quickAddSource}
+                  onChange={(event) => setQuickAddSource(event.target.value)}
+                  placeholder="owner/repo or https://github.com/owner/repo/releases/..."
+                  disabled={quickAddLoading || quickAddSaving}
+                />
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    handleDetectQuickReleases().catch((discoverError) => {
+                      console.error('Failed to detect releases:', discoverError);
+                    });
+                  }}
+                  disabled={quickAddLoading || quickAddSaving}
+                >
+                  {quickAddLoading ? 'Detecting...' : 'Detect Releases'}
+                </button>
+              </div>
+
+              {quickAddResult && (
+                <div className="catalog-quick-grid">
+                  <label className="catalog-quick-wide">
+                    Repository
+                    <input value={quickAddResult.repo} readOnly />
+                  </label>
+                  <label className="catalog-quick-wide">
+                    Release
+                    <select
+                      value={quickAddSelectedTag}
+                      onChange={(event) => handleSelectQuickRelease(event.target.value)}
+                      disabled={quickAddSaving}
+                    >
+                      {quickAddResult.releases.map((release) => (
+                        <option key={release.id} value={release.tag}>
+                          {release.tag}
+                          {release.assets.length ? ` (${release.assets.length} assets)` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Tool ID
+                    <input
+                      value={quickAddToolId}
+                      onChange={(event) => setQuickAddToolId(event.target.value)}
+                      disabled={quickAddSaving}
+                    />
+                  </label>
+                  <label>
+                    Name
+                    <input
+                      value={quickAddToolName}
+                      onChange={(event) => setQuickAddToolName(event.target.value)}
+                      disabled={quickAddSaving}
+                    />
+                  </label>
+                  <label>
+                    Install Type
+                    <select
+                      value={quickAddInstallType}
+                      onChange={(event) => setQuickAddInstallType(event.target.value as InstallType)}
+                      disabled={quickAddSaving}
+                    >
+                      <option value="archive">archive</option>
+                      <option value="msi">msi</option>
+                      <option value="exe">exe</option>
+                      <option value="pkg">pkg</option>
+                    </select>
+                  </label>
+                </div>
+              )}
+
+              {quickAddAssets.length > 0 && (
+                <div className="catalog-quick-assets">
+                  {quickAddAssets.slice(0, 8).map((asset, index) => (
+                    <div key={`${asset.url}-${index}`} className="catalog-quick-asset">
+                      {asset.platform}/{asset.arch} - {asset.type}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <label className="catalog-checkbox">
+                <input
+                  type="checkbox"
+                  checked={quickAddOverwrite}
+                  onChange={(event) => setQuickAddOverwrite(event.target.checked)}
+                  disabled={quickAddSaving}
+                />
+                Overwrite existing tool with the same ID
+              </label>
+
+              {quickAddError && <p className="error">Error: {quickAddError}</p>}
+
+              <div className="catalog-modal-actions">
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setQuickAddOpen(false)}
+                  disabled={quickAddLoading || quickAddSaving}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    handleSaveQuickTool().catch((saveError) => {
+                      console.error('Failed to save quick tool:', saveError);
+                    });
+                  }}
+                  disabled={quickAddLoading || quickAddSaving || !quickAddResult}
+                >
+                  {quickAddSaving ? 'Saving...' : 'Save from Release'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {addToolOpen && (
         <div className="catalog-modal-backdrop" onClick={() => !addToolLoading && setAddToolOpen(false)}>
@@ -919,14 +1422,32 @@ export function Catalog() {
                         />
                       </label>
                     ) : (
-                      <label className="tool-builder-wide">
-                        GitHub Repo (owner/repo)
-                        <input
-                          value={toolBuilder.githubRepo}
-                          onChange={(event) => updateBuilder('githubRepo', event.target.value)}
-                          disabled={addToolLoading}
-                        />
-                      </label>
+                      <>
+                        <label className="tool-builder-wide">
+                          GitHub Repo (owner/repo)
+                          <input
+                            value={toolBuilder.githubRepo}
+                            onChange={(event) => updateBuilder('githubRepo', event.target.value)}
+                            disabled={addToolLoading}
+                          />
+                        </label>
+                        <label className="tool-builder-wide">
+                          GitHub Account Binding (optional, for private repos)
+                          <select
+                            value={toolBuilder.githubAccountId}
+                            onChange={(event) => updateBuilder('githubAccountId', event.target.value)}
+                            disabled={addToolLoading || quickAddAccountLoading}
+                          >
+                            <option value="">Use default / public access</option>
+                            {quickAddAccounts.map((account) => (
+                              <option key={account.id} value={account.id}>
+                                {account.displayName} ({account.username}@{account.host})
+                                {account.isDefault ? ' [default]' : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </>
                     )}
 
                     <div className="tool-builder-wide tool-builder-subsection">
@@ -1318,7 +1839,14 @@ export function Catalog() {
       )}
 
       {detailTool && (
-        <div className="catalog-modal-backdrop" onClick={() => setDetailTool(null)}>
+        <div
+          className="catalog-modal-backdrop"
+          onClick={() => {
+            if (!detailInstallLoading) {
+              setDetailTool(null);
+            }
+          }}
+        >
           <div className="catalog-modal" onClick={(event) => event.stopPropagation()}>
             <div className="catalog-modal-header">
               <h2>{detailTool.name}</h2>
@@ -1326,6 +1854,7 @@ export function Catalog() {
                 className="catalog-modal-close"
                 onClick={() => setDetailTool(null)}
                 aria-label="Close details"
+                disabled={detailInstallLoading}
               >
                 x
               </button>
@@ -1376,6 +1905,35 @@ export function Catalog() {
                 {!detailVersionsLoading && !detailVersionsError && detailVersions.length === 0 && (
                   <p>No version data available.</p>
                 )}
+                <label className="catalog-version-picker">
+                  Version to install
+                  <select
+                    value={selectedDetailVersion}
+                    onChange={(event) => setSelectedDetailVersion(event.target.value)}
+                    disabled={detailVersionsLoading || detailInstallLoading || detailToolBusy}
+                  >
+                    <option value="latest">latest (recommended)</option>
+                    {detailVersions.map((version) => (
+                      <option key={version} value={version}>
+                        {version}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="catalog-version-actions">
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      handleInstallFromDetail().catch((installError) => {
+                        console.error('Failed to install selected version:', installError);
+                      });
+                    }}
+                    disabled={detailInstallLoading || detailVersionsLoading || detailToolBusy}
+                  >
+                    {detailInstallLoading || detailToolBusy ? 'Installing...' : 'Install Selected Version'}
+                  </button>
+                </div>
+                {detailInstallError && <p className="error">Error: {detailInstallError}</p>}
                 {!detailVersionsLoading && detailVersions.length > 0 && (
                   <ul>
                     {detailVersions.map((version) => (

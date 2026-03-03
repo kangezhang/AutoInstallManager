@@ -1,8 +1,10 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useI18n } from '../../i18n';
 import './Sidebar.css';
 
 export function Sidebar() {
   const location = useLocation();
+  const { t } = useI18n();
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -16,21 +18,29 @@ export function Sidebar() {
           to="/dashboard"
           className={`nav-item ${isActive('/dashboard') ? 'active' : ''}`}
         >
-          Dashboard
+          {t('sidebar.dashboard')}
         </Link>
         <Link
           to="/catalog"
           className={`nav-item ${isActive('/catalog') ? 'active' : ''}`}
         >
-          Catalog
+          {t('sidebar.catalog')}
         </Link>
         <Link
           to="/tasks"
           className={`nav-item ${isActive('/tasks') ? 'active' : ''}`}
         >
-          Tasks
+          {t('sidebar.tasks')}
         </Link>
       </nav>
+      <div className="sidebar-footer">
+        <Link
+          to="/settings"
+          className={`settings-item ${isActive('/settings') ? 'active' : ''}`}
+        >
+          {t('sidebar.settings')}
+        </Link>
+      </div>
     </aside>
   );
 }
