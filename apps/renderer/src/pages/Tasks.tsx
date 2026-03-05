@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { InstallTask } from '@aim/shared';
 import { useInstallerStore } from '../store';
 import { useI18n } from '../i18n';
+import { IconButton } from '../components/ui/IconButton';
 import './Tasks.css';
 
 const formatTimestamp = (iso: string) =>
@@ -133,12 +134,12 @@ export function Tasks() {
                 </div>
                 <div className="task-header-right">
                   {task.status === 'failed' && (
-                    <button
+                    <IconButton
                       className="btn btn-console"
                       onClick={() => handleOpenConsole(task)}
-                    >
-                      {t('tasks.consoleOpen')}
-                    </button>
+                      icon="console"
+                      label={t('tasks.consoleOpen')}
+                    />
                   )}
                   <span className={`task-status status-${task.status}`}>
                     {task.status}
@@ -166,28 +167,28 @@ export function Tasks() {
 
               <div className="task-actions">
                 {(task.status === 'pending' || task.status === 'downloading') && (
-                  <button
+                  <IconButton
                     className="btn btn-danger"
                     onClick={() => handleCancel(task.id)}
-                  >
-                    {t('tasks.cancel')}
-                  </button>
+                    icon="cancel"
+                    label={t('tasks.cancel')}
+                  />
                 )}
                 {task.status === 'installed' && task.rollbackAvailable && (
-                  <button
+                  <IconButton
                     className="btn btn-secondary"
                     onClick={() => handleRollback(task.toolId)}
-                  >
-                    {t('tasks.rollback')}
-                  </button>
+                    icon="rollback"
+                    label={t('tasks.rollback')}
+                  />
                 )}
                 {(task.status === 'installed' || task.status === 'rolled-back') && (
-                  <button
+                  <IconButton
                     className="btn btn-danger"
                     onClick={() => handleUninstall(task.toolId)}
-                  >
-                    {t('tasks.uninstall')}
-                  </button>
+                    icon="uninstall"
+                    label={t('tasks.uninstall')}
+                  />
                 )}
               </div>
             </div>
@@ -202,32 +203,35 @@ export function Tasks() {
           <div className="task-console-modal" onClick={(event) => event.stopPropagation()}>
             <div className="task-console-header">
               <h2>{t('tasks.console')}</h2>
-              <button
+              <IconButton
                 className="task-console-close"
                 onClick={() => setConsoleTaskId(null)}
                 aria-label="Close task console"
-              >
-                x
-              </button>
+                icon="close"
+                label={t('tasks.close')}
+              />
             </div>
             <div className="task-console-meta">
               {consoleTask.toolName} ({consoleTask.id})
             </div>
             <pre className="task-console-content">{consoleOutput}</pre>
             <div className="task-console-actions">
-              <button
+              <IconButton
                 className="btn btn-secondary"
                 onClick={() => {
                   navigator.clipboard
                     .writeText(consoleOutput)
                     .catch((copyError) => console.error('Failed to copy task console:', copyError));
                 }}
-              >
-                {t('tasks.copy')}
-              </button>
-              <button className="btn btn-primary" onClick={() => setConsoleTaskId(null)}>
-                {t('tasks.close')}
-              </button>
+                icon="copy"
+                label={t('tasks.copy')}
+              />
+              <IconButton
+                className="btn btn-primary"
+                onClick={() => setConsoleTaskId(null)}
+                icon="close"
+                label={t('tasks.close')}
+              />
             </div>
           </div>
         </div>

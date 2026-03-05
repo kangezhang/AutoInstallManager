@@ -34,6 +34,31 @@
   color: #55616d;
 }
 
+.settings-card label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: #334155;
+}
+
+.settings-card input[type='text'],
+.settings-card input:not([type]),
+.settings-card input[type='url'],
+.settings-card input[type='search'] {
+  border: 1px solid #d4dde8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1f2937;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.9rem;
+}
+
+.settings-card input:focus {
+  outline: 2px solid rgba(10, 106, 216, 0.2);
+  outline-offset: 0;
+  border-color: #0a6ad8;
+}
+
 .settings-language-options {
   display: grid;
   gap: 0.75rem;

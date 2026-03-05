@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useScannerStore, useCatalogStore } from '../store';
 import { useI18n } from '../i18n';
 import type { PlatformInfo } from '@aim/shared';
+import { IconButton } from '../components/ui/IconButton';
 import './Dashboard.css';
 
 export function Dashboard() {
@@ -75,12 +76,18 @@ export function Dashboard() {
             </div>
           </div>
           <div className="quick-actions">
-            <button className="action-btn" onClick={() => navigate('/catalog')}>
-              {t('dashboard.browseCatalog')}
-            </button>
-            <button className="action-btn secondary" onClick={() => navigate('/catalog')}>
-              {t('dashboard.refreshToolStatus')}
-            </button>
+            <IconButton
+              className="action-btn"
+              icon="details"
+              label={t('dashboard.browseCatalog')}
+              onClick={() => navigate('/catalog')}
+            />
+            <IconButton
+              className="action-btn secondary"
+              icon="refresh"
+              label={t('dashboard.refreshToolStatus')}
+              onClick={() => navigate('/catalog')}
+            />
           </div>
         </section>
       </div>

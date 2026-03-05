@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { GitHubAccountSummary, ReleaseUploadRequest, ToolDefinition } from '@aim/shared';
 import { useCatalogStore } from '../store';
+import { IconButton } from '../components/ui/IconButton';
 import './RepositoryInstall.css';
 import './RepositoryUpload.css';
 
@@ -190,12 +191,18 @@ export function RepositoryUpload() {
       </div>
 
       <div className="repo-upload-page-actions">
-        <button className="btn btn-secondary" onClick={() => navigate('/repositories')}>
-          Back to Repositories
-        </button>
-        <button className="btn btn-secondary" onClick={() => navigate('/settings')}>
-          Manage GitHub Accounts
-        </button>
+        <IconButton
+          className="btn btn-secondary"
+          onClick={() => navigate('/repositories')}
+          icon="back"
+          label="Back to Repositories"
+        />
+        <IconButton
+          className="btn btn-secondary"
+          onClick={() => navigate('/settings')}
+          icon="settings"
+          label="Manage GitHub Accounts"
+        />
       </div>
 
       {error && <div className="repo-alert repo-alert-error">Error: {error}</div>}
@@ -282,9 +289,13 @@ export function RepositoryUpload() {
             Local File
             <div className="repo-file-picker-row">
               <input value={upload.filePath} readOnly placeholder="Choose asset file" />
-              <button className="btn btn-secondary" onClick={handlePickAssetFile} disabled={upload.uploading}>
-                Browse
-              </button>
+              <IconButton
+                className="btn btn-secondary"
+                onClick={handlePickAssetFile}
+                disabled={upload.uploading}
+                icon="browse"
+                label="Browse"
+              />
             </div>
           </label>
         </div>
@@ -331,13 +342,13 @@ export function RepositoryUpload() {
         </div>
 
         <div className="repo-upload-actions">
-          <button
+          <IconButton
             className="btn btn-primary"
             onClick={handleUploadAsset}
             disabled={upload.uploading || !repo.trim() || !selectedAccountId}
-          >
-            {upload.uploading ? 'Uploading...' : 'Upload Asset'}
-          </button>
+            icon="upload"
+            label={upload.uploading ? 'Uploading...' : 'Upload Asset'}
+          />
         </div>
 
         {upload.error && <p className="repo-error">Error: {upload.error}</p>}

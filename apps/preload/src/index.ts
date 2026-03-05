@@ -15,7 +15,13 @@ import type {
   GitHubAccountUpsertRequest,
   GitHubAccountSummary,
   GitHubAccountCredential,
-  GitHubAccountBrowserLoginResult
+  GitHubAccountBrowserLoginResult,
+  GitHubCommitInfo,
+  GitHubRepoCommitsRequest,
+  GitHubRepoCreateRequest,
+  GitHubRepoInfo,
+  GitHubRepoListMineRequest,
+  GitHubRepoQueryRequest
 } from '@aim/shared';
 
 // 定义暴露给渲染进程的 API
@@ -81,6 +87,18 @@ const api = {
       ipcRenderer.invoke('githubAccount:getDefaultCredential') as Promise<GitHubAccountCredential | null>,
     loginWithBrowser: (host?: string) =>
       ipcRenderer.invoke('githubAccount:loginWithBrowser', host) as Promise<GitHubAccountBrowserLoginResult>,
+  },
+
+  // GitHub Repository API
+  githubRepo: {
+    create: (payload: GitHubRepoCreateRequest) =>
+      ipcRenderer.invoke('githubRepo:create', payload) as Promise<GitHubRepoInfo>,
+    listMine: (payload?: GitHubRepoListMineRequest) =>
+      ipcRenderer.invoke('githubRepo:listMine', payload) as Promise<GitHubRepoInfo[]>,
+    getInfo: (payload: GitHubRepoQueryRequest) =>
+      ipcRenderer.invoke('githubRepo:getInfo', payload) as Promise<GitHubRepoInfo>,
+    listCommits: (payload: GitHubRepoCommitsRequest) =>
+      ipcRenderer.invoke('githubRepo:listCommits', payload) as Promise<GitHubCommitInfo[]>,
   },
 
   // Events API

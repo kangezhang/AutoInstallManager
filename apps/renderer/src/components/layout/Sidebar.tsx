@@ -27,6 +27,12 @@ export function Sidebar() {
           {t('sidebar.catalog')}
         </Link>
         <Link
+          to="/repositories"
+          className={`nav-item ${isActive('/repositories') ? 'active' : ''}`}
+        >
+          {t('sidebar.repositories')}
+        </Link>
+        <Link
           to="/tasks"
           className={`nav-item ${isActive('/tasks') ? 'active' : ''}`}
         >

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { GitHubAccountSummary } from '@aim/shared';
 import { useI18n } from '../i18n';
+import { IconButton } from '../components/ui/IconButton';
 import './Settings.css';
 
 export function Settings() {
@@ -148,34 +149,34 @@ export function Settings() {
         <p className="settings-current-language">{t('settings.github.authorizeHint')}</p>
 
         <div className="settings-account-actions">
-          <button
+          <IconButton
             className="settings-btn settings-btn-primary"
             onClick={handleGitHubConnectWithBrowser}
+            icon="browse"
+            label={t('settings.github.authorizeBrowser')}
             disabled={githubLoading || githubBusy}
-          >
-            {t('settings.github.authorizeBrowser')}
-          </button>
-          <button
+          />
+          <IconButton
             className="settings-btn settings-btn-secondary"
             onClick={() => loadGitHubAccounts()}
+            icon="refresh"
+            label={t('settings.github.refresh')}
             disabled={githubLoading || githubBusy}
-          >
-            {t('settings.github.refresh')}
-          </button>
-          <button
+          />
+          <IconButton
             className="settings-btn settings-btn-secondary"
             onClick={handleGitHubSetDefault}
+            icon="confirm"
+            label={t('settings.github.setDefault')}
             disabled={githubLoading || githubBusy || !githubSelectedId}
-          >
-            {t('settings.github.setDefault')}
-          </button>
-          <button
+          />
+          <IconButton
             className="settings-btn settings-btn-secondary"
             onClick={handleGitHubRemove}
+            icon="remove"
+            label={t('settings.github.remove')}
             disabled={githubLoading || githubBusy || !githubSelectedId}
-          >
-            {t('settings.github.remove')}
-          </button>
+          />
         </div>
 
         {githubLoading && <p className="settings-account-loading">{t('settings.github.loading')}</p>}
@@ -222,6 +223,7 @@ export function Settings() {
           </div>
         )}
       </section>
+
     </div>
   );
 }

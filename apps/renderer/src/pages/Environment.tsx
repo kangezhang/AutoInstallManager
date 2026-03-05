@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useScannerStore } from '../store';
+import { IconButton } from '../components/ui/IconButton';
 import './Environment.css';
 
 export function Environment() {
@@ -28,9 +29,7 @@ export function Environment() {
     return (
       <div className="environment">
         <div className="error">Error: {error}</div>
-        <button className="scan-button" onClick={handleScan}>
-          Retry Scan
-        </button>
+        <IconButton className="scan-button" icon="refresh" label="Retry Scan" onClick={handleScan} />
       </div>
     );
   }
@@ -39,13 +38,13 @@ export function Environment() {
     <div className="environment">
       <div className="environment-header">
         <h1>Environment Scan</h1>
-        <button
+        <IconButton
           className="scan-button"
           onClick={handleScan}
+          icon="detect"
+          label={scanning ? 'Scanning...' : 'Scan Again'}
           disabled={scanning}
-        >
-          {scanning ? 'Scanning...' : 'Scan Again'}
-        </button>
+        />
       </div>
 
       {report && (

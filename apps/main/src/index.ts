@@ -1,10 +1,16 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('node:path');
-import { createReadStream } from 'node:fs';
+import { createReadStream, existsSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { detectPlatform } from '@aim/adapters';
 import { CatalogLoader, CatalogValidator, VersionResolverFactory, Scanner, Installer } from '@aim/core';
 import type {
+  GitHubCommitInfo,
+  GitHubRepoCommitsRequest,
+  GitHubRepoCreateRequest,
+  GitHubRepoInfo,
+  GitHubRepoListMineRequest,
+  GitHubRepoQueryRequest,
   GitHubAccountUpsertRequest,
   PlatformInfo,
   LoadedCatalog,
@@ -28,13 +34,49 @@ const __dirname = __dirname || path.dirname(require.main?.filename || '');
 let mainWindow: BrowserWindow | null = null;
 let platformInfo: PlatformInfo;
 let catalog: LoadedCatalog;
+let activeCatalogDir: string | null = null;
 
 const catalogLoader = new CatalogLoader();
 const catalogValidator = new CatalogValidator();
 let scanner: Scanner;
 let installer: Installer;
 
-const getCatalogDir = () => path.join(process.cwd(), 'catalog');
+function getCatalogDirCandidates(): string[] {
+  const envCatalogDir = process.env.AIM_CATALOG_DIR?.trim();
+  if (envCatalogDir) {
+    return [envCatalogDir];
+  }
+
+  const devCatalogDir = path.join(process.cwd(), 'catalog');
+  if (!app.isPackaged) {
+    return [devCatalogDir];
+  }
+
+  const packagedCandidates = [
+    path.join(process.resourcesPath, 'catalog'),
+    path.join(app.getAppPath(), 'catalog'),
+    path.join(path.dirname(process.execPath), 'catalog'),
+    devCatalogDir,
+  ];
+
+  return [...new Set(packagedCandidates)];
+}
+
+function getCatalogDir(): string {
+  const packagedCandidates = getCatalogDirCandidates();
+
+  for (const candidate of packagedCandidates) {
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return packagedCandidates[0];
+}
+
+function getActiveCatalogDir(): string {
+  return activeCatalogDir || getCatalogDir();
+}
 
 interface GitHubReleaseInfo {
   id: number;
@@ -59,6 +101,31 @@ interface GitHubReleaseListItem {
   prerelease?: boolean;
   published_at?: string;
   assets?: GitHubReleaseAsset[];
+}
+
+interface GitHubRepositoryApiItem {
+  id: number;
+  name: string;
+  full_name: string;
+  description?: string | null;
+  private: boolean;
+  default_branch?: string;
+  html_url: string;
+  ssh_url: string;
+  clone_url: string;
+}
+
+interface GitHubCommitApiItem {
+  sha: string;
+  html_url: string;
+  commit?: {
+    message?: string;
+    author?: {
+      name?: string;
+      email?: string;
+      date?: string;
+    };
+  };
 }
 
 interface ParsedGitHubSource {
@@ -164,6 +231,215 @@ async function readGitHubApiError(response: Response): Promise<string> {
   }
 
   return `${response.status} ${response.statusText}`;
+}
+
+function mapGitHubRepository(item: GitHubRepositoryApiItem): GitHubRepoInfo {
+  return {
+    id: item.id,
+    name: item.name,
+    fullName: item.full_name,
+    description: item.description || undefined,
+    private: Boolean(item.private),
+    defaultBranch: item.default_branch || undefined,
+    htmlUrl: item.html_url,
+    sshUrl: item.ssh_url,
+    httpsUrl: item.clone_url,
+  };
+}
+
+async function resolveGitHubToken(options?: {
+  token?: string;
+  accountId?: string;
+  required?: boolean;
+}): Promise<string | undefined> {
+  const directToken = options?.token?.trim();
+  if (directToken) {
+    return directToken;
+  }
+
+  const credential = await getGitHubAccountCredential(options?.accountId);
+  if (credential?.token?.trim()) {
+    return credential.token.trim();
+  }
+
+  if (options?.required) {
+    throw new Error('GitHub token cannot be empty. Configure a global GitHub account in Settings.');
+  }
+
+  return undefined;
+}
+
+async function createGitHubRepository(payload: GitHubRepoCreateRequest): Promise<GitHubRepoInfo> {
+  const repoName = payload?.name?.trim() || '';
+  if (!repoName) {
+    throw new Error('Repository name cannot be empty');
+  }
+
+  const normalizedVisibility = payload.visibility?.trim().toLowerCase();
+  const isPrivate =
+    normalizedVisibility === 'private'
+      ? true
+      : normalizedVisibility === 'public'
+        ? false
+        : (payload.private ?? false);
+  const gitignoreTemplate = payload.gitignoreTemplate?.trim() || '';
+  const licenseTemplate = payload.licenseTemplate?.trim() || '';
+  const addReadme = payload.addReadme ?? payload.autoInit ?? false;
+  const autoInit = addReadme || Boolean(gitignoreTemplate) || Boolean(licenseTemplate);
+
+  const token = await resolveGitHubToken({
+    token: payload.token,
+    accountId: payload.accountId,
+    required: true,
+  });
+
+  const response = await fetch(`${GITHUB_API_BASE}/user/repos`, {
+    method: 'POST',
+    headers: {
+      ...buildGitHubJsonHeaders(token),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: repoName,
+      description: payload.description?.trim() || undefined,
+      private: isPrivate,
+      auto_init: autoInit,
+      gitignore_template: gitignoreTemplate || undefined,
+      license_template: licenseTemplate || undefined,
+    }),
+  });
+
+  if (!response.ok) {
+    const message = await readGitHubApiError(response);
+    throw new Error(`Failed to create repository: ${message}`);
+  }
+
+  return mapGitHubRepository((await response.json()) as GitHubRepositoryApiItem);
+}
+
+async function fetchGitHubRepositoryInfo(payload: GitHubRepoQueryRequest): Promise<GitHubRepoInfo> {
+  const repoInput = payload?.repo?.trim() || '';
+  if (!repoInput) {
+    throw new Error('Repository is required');
+  }
+
+  const token = await resolveGitHubToken({
+    token: payload.token,
+    accountId: payload.accountId,
+    required: false,
+  });
+  const { owner, repo } = parseGitHubRepo(repoInput);
+  const response = await fetch(`${GITHUB_API_BASE}/repos/${owner}/${repo}`, {
+    method: 'GET',
+    headers: buildGitHubJsonHeaders(token),
+  });
+
+  if (!response.ok) {
+    const message = await readGitHubApiError(response);
+    throw new Error(`Failed to fetch repository: ${message}`);
+  }
+
+  return mapGitHubRepository((await response.json()) as GitHubRepositoryApiItem);
+}
+
+async function listMineGitHubRepositories(
+  payload?: GitHubRepoListMineRequest
+): Promise<GitHubRepoInfo[]> {
+  const token = await resolveGitHubToken({
+    token: payload?.token,
+    accountId: payload?.accountId,
+    required: true,
+  });
+
+  const perPageValue =
+    typeof payload?.perPage === 'number' && Number.isFinite(payload.perPage) ? payload.perPage : 100;
+  const perPage = Math.min(100, Math.max(1, Math.trunc(perPageValue)));
+  const maxPagesValue =
+    typeof payload?.maxPages === 'number' && Number.isFinite(payload.maxPages) ? payload.maxPages : 5;
+  const maxPages = Math.min(20, Math.max(1, Math.trunc(maxPagesValue)));
+
+  const repos: GitHubRepoInfo[] = [];
+  const seen = new Set<string>();
+
+  for (let page = 1; page <= maxPages; page += 1) {
+    const query = new URLSearchParams({
+      per_page: String(perPage),
+      page: String(page),
+      sort: 'updated',
+      direction: 'desc',
+      affiliation: 'owner,collaborator,organization_member',
+    });
+
+    const response = await fetch(`${GITHUB_API_BASE}/user/repos?${query.toString()}`, {
+      method: 'GET',
+      headers: buildGitHubJsonHeaders(token),
+    });
+
+    if (!response.ok) {
+      const message = await readGitHubApiError(response);
+      throw new Error(`Failed to list repositories: ${message}`);
+    }
+
+    const pageItems = (await response.json()) as GitHubRepositoryApiItem[];
+    for (const item of pageItems) {
+      const mapped = mapGitHubRepository(item);
+      if (seen.has(mapped.fullName)) {
+        continue;
+      }
+      seen.add(mapped.fullName);
+      repos.push(mapped);
+    }
+
+    if (pageItems.length < perPage) {
+      break;
+    }
+  }
+
+  return repos;
+}
+
+async function fetchGitHubRepositoryCommits(
+  payload: GitHubRepoCommitsRequest
+): Promise<GitHubCommitInfo[]> {
+  const repoInput = payload?.repo?.trim() || '';
+  if (!repoInput) {
+    throw new Error('Repository is required');
+  }
+
+  const token = await resolveGitHubToken({
+    token: payload.token,
+    accountId: payload.accountId,
+    required: false,
+  });
+  const { owner, repo } = parseGitHubRepo(repoInput);
+  const perPageValue =
+    typeof payload?.perPage === 'number' && Number.isFinite(payload.perPage) ? payload.perPage : 20;
+  const perPage = Math.min(100, Math.max(1, Math.trunc(perPageValue)));
+  const query = new URLSearchParams({ per_page: String(perPage) });
+  const branch = payload?.branch?.trim();
+  if (branch) {
+    query.set('sha', branch);
+  }
+
+  const response = await fetch(`${GITHUB_API_BASE}/repos/${owner}/${repo}/commits?${query.toString()}`, {
+    method: 'GET',
+    headers: buildGitHubJsonHeaders(token),
+  });
+
+  if (!response.ok) {
+    const message = await readGitHubApiError(response);
+    throw new Error(`Failed to fetch commits: ${message}`);
+  }
+
+  const commits = (await response.json()) as GitHubCommitApiItem[];
+  return commits.map((item) => ({
+    sha: item.sha,
+    message: item.commit?.message?.trim() || '(no message)',
+    authorName: item.commit?.author?.name || undefined,
+    authorEmail: item.commit?.author?.email || undefined,
+    date: item.commit?.author?.date || undefined,
+    htmlUrl: item.html_url,
+  }));
 }
 
 async function getOrCreateReleaseByTag(
@@ -433,11 +709,25 @@ async function discoverGitHubReleasesFromSource(
 }
 
 async function reloadCatalog() {
-  const catalogDir = getCatalogDir();
   catalogLoader.clearCache();
-  catalog = await catalogLoader.load({ catalogDir });
-  installer.setCatalogTools(catalog.tools);
-  return catalog;
+  const candidates = getCatalogDirCandidates();
+  let lastError: unknown;
+
+  for (const catalogDir of candidates) {
+    try {
+      catalog = await catalogLoader.load({ catalogDir });
+      activeCatalogDir = catalogDir;
+      console.log('Catalog loaded from:', activeCatalogDir);
+      installer.setCatalogTools(catalog.tools);
+      return catalog;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('Failed to load catalog from all candidate directories');
 }
 
 function setupIpcHandlers() {
@@ -451,7 +741,7 @@ function setupIpcHandlers() {
 
   ipcMain.handle('catalog:getTool', async (_event, id: string) => {
     if (!catalog) return null;
-    const catalogDir = getCatalogDir();
+    const catalogDir = getActiveCatalogDir();
     return await catalogLoader.getTool(catalogDir, id);
   });
 
@@ -492,7 +782,7 @@ function setupIpcHandlers() {
         throw new Error('Tool definition content cannot be empty');
       }
 
-      const catalogDir = getCatalogDir();
+      const catalogDir = getActiveCatalogDir();
       await fs.mkdir(catalogDir, { recursive: true });
 
       const tempFileName = `.tmp-tool-${Date.now()}-${Math.random().toString(16).slice(2)}.yaml`;
@@ -537,7 +827,7 @@ function setupIpcHandlers() {
       throw new Error('Tool ID contains invalid characters');
     }
 
-    const catalogDir = getCatalogDir();
+    const catalogDir = getActiveCatalogDir();
     const candidatePaths = [
       path.join(catalogDir, `${normalizedId}.yaml`),
       path.join(catalogDir, `${normalizedId}.yml`),
@@ -609,6 +899,22 @@ function setupIpcHandlers() {
 
   ipcMain.handle('githubAccount:loginWithBrowser', async (_event, host?: string) => {
     return await loginGitHubAccountWithBrowser(host);
+  });
+
+  ipcMain.handle('githubRepo:create', async (_event, payload: GitHubRepoCreateRequest) => {
+    return await createGitHubRepository(payload);
+  });
+
+  ipcMain.handle('githubRepo:listMine', async (_event, payload?: GitHubRepoListMineRequest) => {
+    return await listMineGitHubRepositories(payload);
+  });
+
+  ipcMain.handle('githubRepo:getInfo', async (_event, payload: GitHubRepoQueryRequest) => {
+    return await fetchGitHubRepositoryInfo(payload);
+  });
+
+  ipcMain.handle('githubRepo:listCommits', async (_event, payload: GitHubRepoCommitsRequest) => {
+    return await fetchGitHubRepositoryCommits(payload);
   });
 
   ipcMain.handle('scan:start', async () => {

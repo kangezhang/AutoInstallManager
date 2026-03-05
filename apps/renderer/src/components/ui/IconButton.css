@@ -1,0 +1,10 @@
+.icon-button-only {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.icon-button-only svg {
+  pointer-events: none;
+}

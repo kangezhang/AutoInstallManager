@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ReleaseDiscoverResult, ToolDefinition } from '@aim/shared';
 import { useCatalogStore, useInstallerStore } from '../store';
+import { IconButton } from '../components/ui/IconButton';
 import './RepositoryInstall.css';
 
 type GithubVersionSource = Extract<ToolDefinition['versionSource'], { type: 'githubReleases' }>;
@@ -290,13 +291,6 @@ export function RepositoryInstall() {
     () => tasks.some((task) => IN_PROGRESS.has(task.status)),
     [tasks]
   );
-
-  useEffect(() => {
-    if (!window.electronAPI) return;
-    Promise.all([loadTools(), loadTasks()]).catch((loadError) => {
-      console.error('Failed to load repositories page:', loadError);
-    });
-  }, [loadTools, loadTasks]);
 
   useEffect(() => {
     if (!window.electronAPI || !hasInProgressTasks) return;
@@ -746,19 +740,17 @@ export function RepositoryInstall() {
       </div>
 
       <div className="repo-header-actions">
-        <button className="btn btn-primary" onClick={() => setAddOpen(true)}>
-          Add
-        </button>
-        <button
+        <IconButton className="btn btn-primary" onClick={() => setAddOpen(true)} icon="add" label="Add" />
+        <IconButton
           className="btn btn-secondary"
           onClick={() => {
             Promise.all([loadTools(), loadTasks()]).catch((refreshError) => {
               console.error('Failed to refresh repository view:', refreshError);
             });
           }}
-        >
-          Refresh
-        </button>
+          icon="refresh"
+          label="Refresh"
+        />
       </div>
 
       <div className="repo-summary">
@@ -794,9 +786,7 @@ export function RepositoryInstall() {
               ))}
             </div>
             <div className="repo-card-actions">
-              <button className="btn btn-secondary" onClick={() => setDetailRepo(repository.repo)}>
-                Details
-              </button>
+              <IconButton className="btn btn-secondary" onClick={() => setDetailRepo(repository.repo)} icon="details" label="Details" />
             </div>
           </article>
         ))}
@@ -814,14 +804,14 @@ export function RepositoryInstall() {
           <div className="repo-modal repo-modal-large" onClick={(event) => event.stopPropagation()}>
             <div className="repo-modal-header">
               <h2>Add Repository Tool</h2>
-              <button
+              <IconButton
                 className="repo-modal-close"
                 onClick={() => setAddOpen(false)}
                 disabled={addLoading}
                 aria-label="Close add repository modal"
-              >
-                x
-              </button>
+                icon="close"
+                label="Close add repository modal"
+              />
             </div>
 
             <div className="repo-modal-body">
@@ -971,13 +961,13 @@ export function RepositoryInstall() {
               <section className="repo-assets-builder">
                 <div className="repo-assets-header">
                   <h3>Assets</h3>
-                  <button
+                  <IconButton
                     className="btn btn-secondary btn-small"
                     onClick={handleAddAssetRow}
                     disabled={addLoading}
-                  >
-                    Add Asset
-                  </button>
+                    icon="add"
+                    label="Add Asset"
+                  />
                 </div>
 
                 {addForm.assets.map((asset, index) => (
@@ -1032,13 +1022,13 @@ export function RepositoryInstall() {
                       placeholder="https://github.com/owner/repo/releases/download/{version}/tool.exe"
                       disabled={addLoading}
                     />
-                    <button
+                    <IconButton
                       className="btn btn-secondary btn-small"
                       onClick={() => handleRemoveAssetRow(index)}
                       disabled={addLoading || addForm.assets.length <= 1}
-                    >
-                      Remove
-                    </button>
+                      icon="remove"
+                      label="Remove"
+                    />
                   </div>
                 ))}
               </section>
@@ -1061,16 +1051,20 @@ export function RepositoryInstall() {
               {addError && <p className="repo-error">Error: {addError}</p>}
 
               <div className="repo-modal-actions">
-                <button className="btn btn-secondary" onClick={() => setAddOpen(false)} disabled={addLoading}>
-                  Cancel
-                </button>
-                <button
+                <IconButton
+                  className="btn btn-secondary"
+                  onClick={() => setAddOpen(false)}
+                  disabled={addLoading}
+                  icon="cancel"
+                  label="Cancel"
+                />
+                <IconButton
                   className="btn btn-primary"
                   onClick={handleSaveRepositoryTool}
                   disabled={addLoading || !addYaml}
-                >
-                  {addLoading ? 'Saving...' : 'Save'}
-                </button>
+                  icon="save"
+                  label={addLoading ? 'Saving...' : 'Save'}
+                />
               </div>
             </div>
           </div>
@@ -1088,14 +1082,14 @@ export function RepositoryInstall() {
           <div className="repo-modal repo-modal-xlarge" onClick={(event) => event.stopPropagation()}>
             <div className="repo-modal-header">
               <h2>{detailRepoData.repo}</h2>
-              <button
+              <IconButton
                 className="repo-modal-close"
                 onClick={() => setDetailRepo(null)}
                 disabled={detailInstallLoading || detailAddLoading}
                 aria-label="Close repository details"
-              >
-                x
-              </button>
+                icon="close"
+                label="Close repository details"
+              />
             </div>
 
             <div className="repo-modal-body">
@@ -1106,14 +1100,14 @@ export function RepositoryInstall() {
                   and installation.
                 </p>
                 <div className="repo-detail-actions">
-                  <button
+                  <IconButton
                     className="btn btn-secondary"
                     onClick={() =>
                       navigate(`/repositories/upload?repo=${encodeURIComponent(detailRepoData.repo)}`)
                     }
-                  >
-                    Open Upload Page
-                  </button>
+                    icon="upload"
+                    label="Open Upload Page"
+                  />
                 </div>
               </section>
 
@@ -1132,7 +1126,7 @@ export function RepositoryInstall() {
                     placeholder="Paste owner/repo, release page URL, or asset download URL"
                     disabled={detailAddLoading || detailDiscoverLoading}
                   />
-                  <button
+                  <IconButton
                     className="btn btn-secondary"
                     onClick={() => {
                       handleDiscoverReleases().catch((discoverError) => {
@@ -1140,9 +1134,9 @@ export function RepositoryInstall() {
                       });
                     }}
                     disabled={detailAddLoading || detailDiscoverLoading}
-                  >
-                    {detailDiscoverLoading ? 'Detecting...' : 'Detect Releases'}
-                  </button>
+                    icon="detect"
+                    label={detailDiscoverLoading ? 'Detecting...' : 'Detect Releases'}
+                  />
                 </div>
                 {detailDiscoverError && <p className="repo-error">Error: {detailDiscoverError}</p>}
                 {detailDiscoverResult && (
@@ -1296,13 +1290,13 @@ export function RepositoryInstall() {
                     <section className="repo-assets-builder">
                       <div className="repo-assets-header">
                         <h3>Assets</h3>
-                        <button
+                        <IconButton
                           className="btn btn-secondary btn-small"
                           onClick={handleDetailAddAssetRow}
                           disabled={detailAddLoading}
-                        >
-                          Add Asset
-                        </button>
+                          icon="add"
+                          label="Add Asset"
+                        />
                       </div>
 
                       {detailAddForm.assets.map((asset, index) => (
@@ -1363,13 +1357,13 @@ export function RepositoryInstall() {
                             placeholder="https://github.com/owner/repo/releases/download/{version}/tool.exe"
                             disabled={detailAddLoading}
                           />
-                          <button
+                          <IconButton
                             className="btn btn-secondary btn-small"
                             onClick={() => handleDetailRemoveAssetRow(index)}
                             disabled={detailAddLoading || detailAddForm.assets.length <= 1}
-                          >
-                            Remove
-                          </button>
+                            icon="remove"
+                            label="Remove"
+                          />
                         </div>
                       ))}
                     </section>
@@ -1388,13 +1382,13 @@ export function RepositoryInstall() {
                     {detailAddSuccess && <p className="repo-success">{detailAddSuccess}</p>}
 
                     <div className="repo-modal-actions">
-                      <button
+                      <IconButton
                         className="btn btn-primary"
                         onClick={handleSaveDetailRepositoryTool}
                         disabled={detailAddLoading}
-                      >
-                        {detailAddLoading ? 'Saving...' : 'Add Tool to Repository'}
-                      </button>
+                        icon="save"
+                        label={detailAddLoading ? 'Saving...' : 'Add Tool to Repository'}
+                      />
                     </div>
                   </>
                 )}
@@ -1403,7 +1397,7 @@ export function RepositoryInstall() {
               <section className="repo-detail-block">
                 <div className="repo-tools-header">
                   <h3>Select Tools and Versions</h3>
-                  <button
+                  <IconButton
                     className="btn btn-secondary btn-small"
                     onClick={() => {
                       detailRepoData.tools.forEach((tool) => {
@@ -1413,9 +1407,9 @@ export function RepositoryInstall() {
                       });
                     }}
                     disabled={detailInstallLoading}
-                  >
-                    Refresh Versions
-                  </button>
+                    icon="refresh"
+                    label="Refresh Versions"
+                  />
                 </div>
 
                 <div className="repo-tools-list">
@@ -1477,7 +1471,7 @@ export function RepositoryInstall() {
                         )}
 
                         <div className="repo-tool-controls">
-                          <button
+                          <IconButton
                             className="btn btn-secondary btn-small"
                             onClick={() => {
                               loadVersionsForTool(tool.id, true).catch((loadError) => {
@@ -1485,9 +1479,9 @@ export function RepositoryInstall() {
                               });
                             }}
                             disabled={loadingVersions || busy}
-                          >
-                            {loadingVersions ? 'Loading...' : 'Load Versions'}
-                          </button>
+                            icon="refresh"
+                            label={loadingVersions ? 'Loading...' : 'Load Versions'}
+                          />
 
                           <select
                             value={selection.version}
@@ -1513,7 +1507,7 @@ export function RepositoryInstall() {
 
                         <div className="repo-tool-actions">
                           {installState === 'installed' ? (
-                            <button
+                            <IconButton
                               className="btn btn-secondary btn-small"
                               onClick={() => {
                                 handleUninstallTool(tool).catch((actionError) => {
@@ -1521,11 +1515,11 @@ export function RepositoryInstall() {
                                 });
                               }}
                               disabled={busy}
-                            >
-                              {actionLoading ? 'Uninstalling...' : 'Uninstall'}
-                            </button>
+                              icon="uninstall"
+                              label={actionLoading ? 'Uninstalling...' : 'Uninstall'}
+                            />
                           ) : (
-                            <button
+                            <IconButton
                               className="btn btn-danger btn-small"
                               onClick={() => {
                                 handleRemoveToolDefinition(tool).catch((actionError) => {
@@ -1533,9 +1527,9 @@ export function RepositoryInstall() {
                                 });
                               }}
                               disabled={busy}
-                            >
-                              {actionLoading ? 'Removing...' : 'Remove from Repository'}
-                            </button>
+                              icon="remove"
+                              label={actionLoading ? 'Removing...' : 'Remove from Repository'}
+                            />
                           )}
                           {installState === 'in-progress' && toolTask && (
                             <span className="repo-tool-action-hint">Busy: {toolTask.status}</span>
@@ -1549,9 +1543,13 @@ export function RepositoryInstall() {
                 </div>
 
                 <div className="repo-batch-actions">
-                  <button className="btn btn-primary" onClick={handleInstallSelected} disabled={detailInstallLoading}>
-                    {detailInstallLoading ? 'Installing...' : 'Install Selected'}
-                  </button>
+                  <IconButton
+                    className="btn btn-primary"
+                    onClick={handleInstallSelected}
+                    disabled={detailInstallLoading}
+                    icon="install"
+                    label={detailInstallLoading ? 'Installing...' : 'Install Selected'}
+                  />
                 </div>
 
                 {detailInstallError && <p className="repo-error">Error: {detailInstallError}</p>}

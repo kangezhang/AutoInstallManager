@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { GitHubAccountSummary, ReleaseDiscoverResult, ToolDefinition } from '@aim/shared';
 import { useCatalogStore, useInstallerStore, useScannerStore } from '../store';
+import { IconButton } from '../components/ui/IconButton';
 import './Catalog.css';
 
 type AddToolMode = 'form' | 'yaml';
@@ -381,7 +382,7 @@ const inferInstallTypeFromAssetType = (assetType: AssetType): InstallType => {
 export function Catalog() {
   const { tools, loading, error, loadTools } = useCatalogStore();
   const { createTask, startTask, tasks, loadTasks } = useInstallerStore();
-  const { report, scanning, loadLastReport, startScan } = useScannerStore();
+  const { report, scanning, startScan } = useScannerStore();
   const [detailTool, setDetailTool] = useState<ToolDefinition | null>(null);
   const [detailVersions, setDetailVersions] = useState<string[]>([]);
   const [detailVersionsLoading, setDetailVersionsLoading] = useState(false);
@@ -403,6 +404,8 @@ export function Catalog() {
   const [uninstallConfirmInput, setUninstallConfirmInput] = useState('');
   const [uninstallLoading, setUninstallLoading] = useState(false);
   const [uninstallError, setUninstallError] = useState<string | null>(null);
+  const [removeToolLoading, setRemoveToolLoading] = useState<Record<string, boolean>>({});
+  const [removeToolError, setRemoveToolError] = useState<string | null>(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddLoading, setQuickAddLoading] = useState(false);
   const [quickAddSaving, setQuickAddSaving] = useState(false);
@@ -418,22 +421,6 @@ export function Catalog() {
   const [quickAddAccounts, setQuickAddAccounts] = useState<GitHubAccountSummary[]>([]);
   const [quickAddAccountLoading, setQuickAddAccountLoading] = useState(false);
   const [quickAddSelectedAccountId, setQuickAddSelectedAccountId] = useState('');
-
-  useEffect(() => {
-    if (!window.electronAPI) return;
-
-    const loadData = async () => {
-      await Promise.all([loadTools(), loadTasks()]);
-      const lastReport = await loadLastReport();
-      if (!lastReport) {
-        await startScan();
-      }
-    };
-
-    loadData().catch((loadError) => {
-      console.error('Failed to load catalog page data:', loadError);
-    });
-  }, [loadTools, loadLastReport, loadTasks, startScan]);
 
   useEffect(() => {
     if (addToolMode === 'form') {
@@ -657,9 +644,45 @@ export function Catalog() {
     await startTask(task.id);
   };
 
+  const handleRemoveToolDefinition = async (tool: ToolDefinition) => {
+    if (!window.electronAPI) return;
+
+    if (isToolInstalled(tool.id)) {
+      setRemoveToolError(`"${tool.id}" is installed. Use Uninstall first.`);
+      return;
+    }
+
+    if (inProgressToolIds.has(tool.id)) {
+      setRemoveToolError(`"${tool.id}" has an active task. Please wait until it finishes.`);
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Remove tool definition "${tool.id}" from catalog?\n\nThis removes the card only and does not uninstall any software.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setRemoveToolError(null);
+    setRemoveToolLoading((previous) => ({ ...previous, [tool.id]: true }));
+    try {
+      await window.electronAPI.catalog.removeToolDefinition(tool.id);
+      if (detailTool?.id === tool.id) {
+        setDetailTool(null);
+      }
+      await Promise.all([loadTools(), loadTasks(), startScan()]);
+    } catch (removeError) {
+      setRemoveToolError(
+        removeError instanceof Error ? removeError.message : 'Failed to remove tool definition'
+      );
+    } finally {
+      setRemoveToolLoading((previous) => ({ ...previous, [tool.id]: false }));
+    }
+  };
+
   const handleRefreshStatus = async () => {
-    await startScan();
-    await loadTasks();
+    await Promise.all([loadTools(), loadTasks(), startScan()]);
   };
 
   const handleOpenUninstall = (tool: ToolDefinition) => {
@@ -1031,13 +1054,9 @@ export function Catalog() {
         <h1>Tool Catalog</h1>
         <p>Browse and install development tools</p>
         <div className="catalog-header-actions">
-          <button className="btn btn-primary" onClick={handleOpenQuickAdd}>
-            Quick Add from GitHub
-          </button>
-          <button className="btn btn-primary" onClick={handleOpenAddTool}>
-            Add Custom Tool
-          </button>
-          <button
+          <IconButton className="btn btn-primary" onClick={handleOpenQuickAdd} icon="add" label="Quick Add from GitHub" />
+          <IconButton className="btn btn-primary" onClick={handleOpenAddTool} icon="form" label="Add Custom Tool" />
+          <IconButton
             className="btn btn-secondary"
             onClick={() => {
               handleRefreshStatus().catch((refreshError) => {
@@ -1045,9 +1064,9 @@ export function Catalog() {
               });
             }}
             disabled={scanning}
-          >
-            {scanning ? 'Scanning...' : 'Refresh Status'}
-          </button>
+            icon="refresh"
+            label={scanning ? 'Scanning...' : 'Refresh Status'}
+          />
         </div>
       </div>
 
@@ -1059,11 +1078,13 @@ export function Catalog() {
           <span>Errors: {report.summary.errors}</span>
         </div>
       )}
+      {removeToolError && <div className="tool-install-error">{removeToolError}</div>}
 
       <div className="catalog-grid">
         {tools.map((tool) => {
           const installed = isToolInstalled(tool.id);
           const busy = inProgressToolIds.has(tool.id);
+          const removing = removeToolLoading[tool.id] === true;
           const latestTask = latestTaskByTool.get(tool.id);
           const latestTaskStatus = latestTask?.status;
           const latestTaskProgress = latestTask?.progress;
@@ -1106,30 +1127,41 @@ export function Catalog() {
 
               <div className="tool-actions">
                 {!installed ? (
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => {
-                      handleInstall(tool.id).catch((installError) => {
-                        console.error('Failed to install tool:', installError);
-                      });
-                    }}
-                    disabled={busy}
-                  >
-                    {busy ? 'Installing...' : 'Install'}
-                  </button>
+                  <>
+                    <IconButton
+                      className="btn btn-primary"
+                      onClick={() => {
+                        handleInstall(tool.id).catch((installError) => {
+                          console.error('Failed to install tool:', installError);
+                        });
+                      }}
+                      disabled={busy || removing}
+                      icon="install"
+                      label={busy ? 'Installing...' : 'Install'}
+                    />
+                    <IconButton
+                      className="btn btn-danger"
+                      onClick={() => {
+                        handleRemoveToolDefinition(tool).catch((removeError) => {
+                          console.error('Failed to remove tool definition:', removeError);
+                        });
+                      }}
+                      disabled={busy || removing}
+                      icon="remove"
+                      label={removing ? 'Removing...' : 'Remove'}
+                    />
+                  </>
                 ) : (
-                  <button
+                  <IconButton
                     className="btn btn-danger"
                     onClick={() => handleOpenUninstall(tool)}
                     disabled={busy}
-                  >
-                    {latestTaskStatus === 'uninstalling' ? 'Uninstalling...' : 'Uninstall'}
-                  </button>
+                    icon="uninstall"
+                    label={latestTaskStatus === 'uninstalling' ? 'Uninstalling...' : 'Uninstall'}
+                  />
                 )}
 
-                <button className="btn btn-secondary" onClick={() => setDetailTool(tool)}>
-                  Details
-                </button>
+                <IconButton className="btn btn-secondary" onClick={() => setDetailTool(tool)} icon="details" label="Details" />
               </div>
 
               {showProgress && latestTaskProgress && (
@@ -1167,14 +1199,14 @@ export function Catalog() {
           <div className="catalog-modal" onClick={(event) => event.stopPropagation()}>
             <div className="catalog-modal-header">
               <h2>Quick Add from GitHub Release</h2>
-              <button
+              <IconButton
                 className="catalog-modal-close"
                 onClick={() => setQuickAddOpen(false)}
                 aria-label="Close quick add dialog"
                 disabled={quickAddLoading || quickAddSaving}
-              >
-                x
-              </button>
+                icon="close"
+                label="Close quick add dialog"
+              />
             </div>
 
             <div className="catalog-modal-body">
@@ -1204,7 +1236,7 @@ export function Catalog() {
                   placeholder="owner/repo or https://github.com/owner/repo/releases/..."
                   disabled={quickAddLoading || quickAddSaving}
                 />
-                <button
+                <IconButton
                   className="btn btn-secondary"
                   onClick={() => {
                     handleDetectQuickReleases().catch((discoverError) => {
@@ -1212,9 +1244,9 @@ export function Catalog() {
                     });
                   }}
                   disabled={quickAddLoading || quickAddSaving}
-                >
-                  {quickAddLoading ? 'Detecting...' : 'Detect Releases'}
-                </button>
+                  icon="detect"
+                  label={quickAddLoading ? 'Detecting...' : 'Detect Releases'}
+                />
               </div>
 
               {quickAddResult && (
@@ -1293,14 +1325,14 @@ export function Catalog() {
               {quickAddError && <p className="error">Error: {quickAddError}</p>}
 
               <div className="catalog-modal-actions">
-                <button
+                <IconButton
                   className="btn btn-secondary"
                   onClick={() => setQuickAddOpen(false)}
                   disabled={quickAddLoading || quickAddSaving}
-                >
-                  Cancel
-                </button>
-                <button
+                  icon="cancel"
+                  label="Cancel"
+                />
+                <IconButton
                   className="btn btn-primary"
                   onClick={() => {
                     handleSaveQuickTool().catch((saveError) => {
@@ -1308,9 +1340,9 @@ export function Catalog() {
                     });
                   }}
                   disabled={quickAddLoading || quickAddSaving || !quickAddResult}
-                >
-                  {quickAddSaving ? 'Saving...' : 'Save from Release'}
-                </button>
+                  icon="save"
+                  label={quickAddSaving ? 'Saving...' : 'Save from Release'}
+                />
               </div>
             </div>
           </div>
@@ -1322,14 +1354,14 @@ export function Catalog() {
           <div className="catalog-modal catalog-modal-large" onClick={(event) => event.stopPropagation()}>
             <div className="catalog-modal-header">
               <h2>Add Custom Tool Definition</h2>
-              <button
+              <IconButton
                 className="catalog-modal-close"
                 onClick={() => setAddToolOpen(false)}
                 aria-label="Close add tool dialog"
                 disabled={addToolLoading}
-              >
-                x
-              </button>
+                icon="close"
+                label="Close add tool dialog"
+              />
             </div>
 
             <div className="catalog-modal-body">
@@ -1339,20 +1371,20 @@ export function Catalog() {
               </p>
 
               <div className="tool-mode-tabs">
-                <button
+                <IconButton
                   className={`btn ${addToolMode === 'form' ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => setAddToolMode('form')}
                   disabled={addToolLoading}
-                >
-                  Form Builder
-                </button>
-                <button
+                  icon="form"
+                  label="Form Builder"
+                />
+                <IconButton
                   className={`btn ${addToolMode === 'yaml' ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => setAddToolMode('yaml')}
                   disabled={addToolLoading}
-                >
-                  YAML Editor
-                </button>
+                  icon="yaml"
+                  label="YAML Editor"
+                />
               </div>
 
               {addToolMode === 'form' && (
@@ -1453,9 +1485,13 @@ export function Catalog() {
                     <div className="tool-builder-wide tool-builder-subsection">
                       <div className="tool-builder-subsection-header">
                         <h3>Assets</h3>
-                        <button className="btn btn-secondary btn-mini" onClick={addAsset} disabled={addToolLoading}>
-                          Add Asset
-                        </button>
+                        <IconButton
+                          className="btn btn-secondary btn-mini"
+                          onClick={addAsset}
+                          disabled={addToolLoading}
+                          icon="add"
+                          label="Add Asset"
+                        />
                       </div>
                       {toolBuilder.assets.map((asset, assetIndex) => (
                         <div className="tool-builder-row" key={`${assetIndex}-${asset.platform}-${asset.arch}`}>
@@ -1521,13 +1557,13 @@ export function Catalog() {
                             />
                           </label>
                           <div className="tool-builder-row-actions">
-                            <button
+                            <IconButton
                               className="btn btn-secondary btn-mini"
                               onClick={() => removeAsset(assetIndex)}
                               disabled={addToolLoading || toolBuilder.assets.length <= 1}
-                            >
-                              Remove Asset
-                            </button>
+                              icon="remove"
+                              label="Remove Asset"
+                            />
                           </div>
                         </div>
                       ))}
@@ -1536,13 +1572,13 @@ export function Catalog() {
                     <div className="tool-builder-wide tool-builder-subsection">
                       <div className="tool-builder-subsection-header">
                         <h3>Install Template</h3>
-                        <button
+                        <IconButton
                           className="btn btn-secondary btn-mini"
                           onClick={() => applyInstallPreset(installPresetType)}
                           disabled={addToolLoading}
-                        >
-                          Apply Template
-                        </button>
+                          icon="template"
+                          label="Apply Template"
+                        />
                       </div>
                       <label className="tool-builder-wide">
                         Template
@@ -1636,13 +1672,13 @@ export function Catalog() {
                     <div className="tool-builder-wide tool-builder-subsection">
                       <div className="tool-builder-subsection-header">
                         <h3>Dependencies</h3>
-                        <button
+                        <IconButton
                           className="btn btn-secondary btn-mini"
                           onClick={addDependency}
                           disabled={addToolLoading}
-                        >
-                          Add Dependency
-                        </button>
+                          icon="dependency"
+                          label="Add Dependency"
+                        />
                       </div>
                       {toolBuilder.dependencies.length === 0 && (
                         <p className="tool-builder-empty">No dependencies configured.</p>
@@ -1688,13 +1724,13 @@ export function Catalog() {
                             />
                           </label>
                           <div className="tool-builder-row-actions">
-                            <button
+                            <IconButton
                               className="btn btn-secondary btn-mini"
                               onClick={() => removeDependency(dependencyIndex)}
                               disabled={addToolLoading}
-                            >
-                              Remove Dependency
-                            </button>
+                              icon="remove"
+                              label="Remove Dependency"
+                            />
                           </div>
                         </div>
                       ))}
@@ -1754,14 +1790,14 @@ export function Catalog() {
               {addToolError && <p className="error">Error: {addToolError}</p>}
 
               <div className="catalog-modal-actions">
-                <button
+                <IconButton
                   className="btn btn-secondary"
                   onClick={() => setAddToolOpen(false)}
                   disabled={addToolLoading}
-                >
-                  Cancel
-                </button>
-                <button
+                  icon="cancel"
+                  label="Cancel"
+                />
+                <IconButton
                   className="btn btn-primary"
                   onClick={() => {
                     handleAddTool().catch((submitError) => {
@@ -1769,9 +1805,9 @@ export function Catalog() {
                     });
                   }}
                   disabled={addToolLoading}
-                >
-                  {addToolLoading ? 'Saving...' : 'Save Tool Definition'}
-                </button>
+                  icon="save"
+                  label={addToolLoading ? 'Saving...' : 'Save Tool Definition'}
+                />
               </div>
             </div>
           </div>
@@ -1786,14 +1822,14 @@ export function Catalog() {
           <div className="catalog-modal" onClick={(event) => event.stopPropagation()}>
             <div className="catalog-modal-header">
               <h2>Confirm Uninstall</h2>
-              <button
+              <IconButton
                 className="catalog-modal-close"
                 onClick={() => setUninstallTarget(null)}
                 aria-label="Close uninstall dialog"
                 disabled={uninstallLoading}
-              >
-                x
-              </button>
+                icon="close"
+                label="Close uninstall dialog"
+              />
             </div>
 
             <div className="catalog-modal-body">
@@ -1814,14 +1850,14 @@ export function Catalog() {
               {uninstallError && <p className="error">Error: {uninstallError}</p>}
 
               <div className="catalog-modal-actions">
-                <button
+                <IconButton
                   className="btn btn-secondary"
                   onClick={() => setUninstallTarget(null)}
                   disabled={uninstallLoading}
-                >
-                  Cancel
-                </button>
-                <button
+                  icon="cancel"
+                  label="Cancel"
+                />
+                <IconButton
                   className="btn btn-danger"
                   onClick={() => {
                     handleConfirmUninstall().catch((uninstallRequestError) => {
@@ -1829,9 +1865,9 @@ export function Catalog() {
                     });
                   }}
                   disabled={uninstallLoading || !uninstallConfirmMatches}
-                >
-                  {uninstallLoading ? 'Uninstalling...' : 'Confirm Uninstall'}
-                </button>
+                  icon="confirm"
+                  label={uninstallLoading ? 'Uninstalling...' : 'Confirm Uninstall'}
+                />
               </div>
             </div>
           </div>
@@ -1850,14 +1886,14 @@ export function Catalog() {
           <div className="catalog-modal" onClick={(event) => event.stopPropagation()}>
             <div className="catalog-modal-header">
               <h2>{detailTool.name}</h2>
-              <button
+              <IconButton
                 className="catalog-modal-close"
                 onClick={() => setDetailTool(null)}
                 aria-label="Close details"
                 disabled={detailInstallLoading}
-              >
-                x
-              </button>
+                icon="close"
+                label="Close details"
+              />
             </div>
 
             <div className="catalog-modal-body">
@@ -1921,7 +1957,7 @@ export function Catalog() {
                   </select>
                 </label>
                 <div className="catalog-version-actions">
-                  <button
+                  <IconButton
                     className="btn btn-primary"
                     onClick={() => {
                       handleInstallFromDetail().catch((installError) => {
@@ -1929,9 +1965,9 @@ export function Catalog() {
                       });
                     }}
                     disabled={detailInstallLoading || detailVersionsLoading || detailToolBusy}
-                  >
-                    {detailInstallLoading || detailToolBusy ? 'Installing...' : 'Install Selected Version'}
-                  </button>
+                    icon="install"
+                    label={detailInstallLoading || detailToolBusy ? 'Installing...' : 'Install Selected Version'}
+                  />
                 </div>
                 {detailInstallError && <p className="error">Error: {detailInstallError}</p>}
                 {!detailVersionsLoading && detailVersions.length > 0 && (

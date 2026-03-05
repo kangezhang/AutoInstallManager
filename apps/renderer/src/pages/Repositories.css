@@ -1,0 +1,280 @@
+.repo-page {
+  padding: 2rem;
+}
+
+.repo-header {
+  margin-bottom: 1rem;
+}
+
+.repo-header h1 {
+  margin: 0 0 0.5rem;
+  font-size: 2rem;
+}
+
+.repo-header p {
+  margin: 0;
+  color: #55616d;
+}
+
+.repo-card {
+  max-width: 980px;
+  background: #ffffff;
+  border: 1px solid #dbe2ea;
+  border-radius: 10px;
+  padding: 1.25rem;
+  margin-top: 1rem;
+}
+
+.repo-account-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.repo-account-head h2,
+.repo-panel h3,
+.repo-commit-panel h3 {
+  margin: 0;
+  color: #1f2937;
+}
+
+.repo-field {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: #334155;
+}
+
+.repo-field input,
+.repo-field select {
+  border: 1px solid #d4dde8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1f2937;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.9rem;
+}
+
+.repo-field input:focus,
+.repo-field select:focus {
+  outline: 2px solid rgba(10, 106, 216, 0.2);
+  border-color: #0a6ad8;
+}
+
+.repo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.repo-panel {
+  border: 1px solid #dbe2ea;
+  border-radius: 10px;
+  padding: 0.9rem;
+  background: #fafcff;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.repo-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.repo-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.55rem;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.repo-list-item {
+  border: 1px solid #dbe2ea;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 0.6rem 0.7rem;
+  cursor: pointer;
+}
+
+.repo-list-item:hover {
+  border-color: #b8cbe1;
+  background: #f6f9fd;
+}
+
+.repo-list-item.active {
+  border-color: #0a6ad8;
+  background: #eef5ff;
+}
+
+.repo-list-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.repo-list-meta {
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  color: #4b5b6a;
+}
+
+.repo-list-desc {
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  color: #5b6977;
+}
+
+.repo-inline-check {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.repo-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.repo-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.repo-btn-primary {
+  background: #0a6ad8;
+  color: #fff;
+}
+
+.repo-btn-primary:hover:not(:disabled) {
+  background: #0759b9;
+}
+
+.repo-btn-secondary {
+  background: #f1f5fa;
+  color: #2a3a4b;
+  border: 1px solid #d4dde8;
+}
+
+.repo-btn-secondary:hover:not(:disabled) {
+  background: #e6edf7;
+}
+
+.repo-info {
+  border: 1px solid #dbe2ea;
+  border-radius: 8px;
+  padding: 0.7rem;
+  background: #ffffff;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.repo-link-row {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.repo-link-row span {
+  font-size: 0.78rem;
+  color: #5a6775;
+}
+
+.repo-link-row code {
+  word-break: break-all;
+  font-size: 0.8rem;
+  background: #eef3f9;
+  padding: 0.25rem 0.35rem;
+  border-radius: 4px;
+  color: #314253;
+}
+
+.repo-commit-panel {
+  margin-top: 1rem;
+  border-top: 1px solid #e3e9f1;
+  padding-top: 0.9rem;
+}
+
+.repo-commit-list {
+  margin: 0.7rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.repo-commit-item {
+  border: 1px solid #dbe2ea;
+  border-radius: 8px;
+  background: #fafcff;
+  padding: 0.65rem 0.75rem;
+}
+
+.repo-commit-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.repo-commit-head code {
+  font-size: 0.8rem;
+  background: #eef3f9;
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
+  color: #314253;
+}
+
+.repo-commit-head a {
+  color: #0a6ad8;
+  text-decoration: none;
+  font-size: 0.8rem;
+}
+
+.repo-commit-head a:hover {
+  text-decoration: underline;
+}
+
+.repo-commit-item p {
+  margin: 0.4rem 0 0.2rem;
+  color: #1f2937;
+}
+
+.repo-commit-item small {
+  color: #5a6775;
+}
+
+.repo-error,
+.repo-success,
+.repo-hint {
+  margin-top: 0.8rem;
+  font-size: 0.9rem;
+}
+
+.repo-error {
+  color: #b42318;
+}
+
+.repo-success {
+  color: #067647;
+}
+
+.repo-hint {
+  color: #55616d;
+}
+
+@media (max-width: 900px) {
+  .repo-page {
+    padding: 1rem;
+  }
+
+  .repo-grid {
+    grid-template-columns: 1fr;
+  }
+}
