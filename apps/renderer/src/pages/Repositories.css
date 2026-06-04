@@ -1484,7 +1484,12 @@
 
 /* ---------- CONTEXT MENU ---------- */
 
-.gf-ctx-menu {
+.gf-commit-hint {
+  font-size: var(--fs-xs);
+  color: var(--c-text-subtle);
+  margin-right: auto;
+}
+
   position: fixed;
   z-index: 9000;
   background: var(--c-surface);

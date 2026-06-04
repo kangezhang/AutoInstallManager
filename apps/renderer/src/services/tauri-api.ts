@@ -137,6 +137,13 @@ export const gitLocal = {
     call<void>('git_local_discard', { id, paths }),
   commit: (id: string, options: Json) =>
     call<unknown>('git_local_commit', { id, options }),
+  push: (id: string, opts?: { remote?: string; branch?: string; force?: boolean }) =>
+    call<{ success: boolean; output: string; error?: string }>('git_local_push', {
+      id,
+      remote: opts?.remote ?? null,
+      branch: opts?.branch ?? null,
+      force: opts?.force ?? false,
+    }),
 };
 
 // ---------- Events ----------

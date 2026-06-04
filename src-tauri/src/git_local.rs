@@ -16,6 +16,7 @@ use git2::{
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::Mutex;
 use uuid::Uuid;
 
@@ -812,4 +813,78 @@ pub fn commit(registry: &Registry, id: &str, opts: CommitOptions) -> AppResult<C
         short_sha,
         summary,
     })
+}
+
+// ---------------------------------------------------------------- push
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PushResult {
+    pub success: bool,
+    pub output: String,
+    pub error: Option<String>,
+}
+
+/// Push the current branch to its upstream remote using the system `git` binary.
+/// Falls back to `git push --set-upstream origin <branch>` when no upstream is set.
+pub fn push(registry: &Registry, id: &str, remote: Option<&str>, branch: Option<&str>, force: bool) -> AppResult<PushResult> {
+    let (_entry, repo) = open_repo_by_id(registry, id)?;
+    let workdir = repo
+        .workdir()
+        .ok_or_else(|| AppError::Validation("bare repos not supported".into()))?
+        .to_path_buf();
+
+    // Determine remote name
+    let remote_name = remote.map(|s| s.to_string()).unwrap_or_else(|| {
+        // Try to read upstream remote from HEAD branch
+        repo.head()
+            .ok()
+            .and_then(|h| h.shorthand().map(|s| s.to_string()))
+            .and_then(|branch_name| {
+                repo.find_branch(&branch_name, BranchType::Local).ok()
+            })
+            .and_then(|b| b.upstream().ok())
+            .and_then(|u| u.name().ok().flatten().map(|s| s.to_string()))
+            .and_then(|upstream| {
+                // upstream is like "origin/main" — extract remote name
+                upstream.split('/').next().map(|s| s.to_string())
+            })
+            .unwrap_or_else(|| "origin".to_string())
+    });
+
+    // Determine branch name
+    let branch_name = branch.map(|s| s.to_string()).unwrap_or_else(|| {
+        repo.head()
+            .ok()
+            .and_then(|h| h.shorthand().map(|s| s.to_string()))
+            .unwrap_or_else(|| "HEAD".to_string())
+    });
+
+    let mut cmd = Command::new("git");
+    cmd.current_dir(&workdir);
+    cmd.arg("push");
+    if force {
+        cmd.arg("--force-with-lease");
+    }
+    cmd.arg("--set-upstream");
+    cmd.arg(&remote_name);
+    cmd.arg(&branch_name);
+
+    let output = cmd
+        .output()
+        .map_err(|e| AppError::Validation(format!("failed to run git: {}", e)))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    let combined = if stdout.is_empty() { stderr.clone() } else if stderr.is_empty() { stdout.clone() } else { format!("{}\n{}", stdout, stderr) };
+
+    if output.status.success() {
+        Ok(PushResult { success: true, output: combined, error: None })
+    } else {
+        Ok(PushResult {
+            success: false,
+            output: combined.clone(),
+            error: Some(combined),
+        })
+    }
 }

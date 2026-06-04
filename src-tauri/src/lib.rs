@@ -115,6 +115,7 @@ pub fn run() {
             git_local_unstage,
             git_local_discard,
             git_local_commit,
+            git_local_push,
         ])
         .setup(|app| {
             let state: tauri::State<AppState> = app.state();

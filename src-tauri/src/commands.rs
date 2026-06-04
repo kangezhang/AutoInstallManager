@@ -600,3 +600,25 @@ pub async fn git_local_commit(
         .await
         .map_err(|e| AppError::Other(format!("task: {}", e)))?
 }
+
+#[tauri::command]
+pub async fn git_local_push(
+    state: State<'_, AppState>,
+    id: String,
+    remote: Option<String>,
+    branch: Option<String>,
+    force: Option<bool>,
+) -> AppResult<git_local::PushResult> {
+    let registry = state.git_registry.clone();
+    tokio::task::spawn_blocking(move || {
+        git_local::push(
+            &registry,
+            &id,
+            remote.as_deref(),
+            branch.as_deref(),
+            force.unwrap_or(false),
+        )
+    })
+    .await
+    .map_err(|e| AppError::Other(format!("task: {}", e)))?
+}

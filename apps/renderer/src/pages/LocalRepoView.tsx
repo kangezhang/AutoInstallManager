@@ -370,6 +370,7 @@ function ChangesPane({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [stageBeforeCommit, setStageBeforeCommit] = useState(false);
+  const [lastCommitSha, setLastCommitSha] = useState<string | null>(null);
 
   const totalChanges =
     (status?.staged.length ?? 0) +
@@ -425,7 +426,9 @@ function ChangesPane({
         message: trimmed,
         stageAll: stageBeforeCommit,
       })) as { shortSha?: string };
-      onAction(`Committed ${result?.shortSha ?? ''}`.trim());
+      const sha = result?.shortSha ?? '';
+      onAction(`Committed ${sha}`.trim());
+      setLastCommitSha(sha);
       setMessage('');
       setStageBeforeCommit(false);
       refresh();
@@ -436,9 +439,58 @@ function ChangesPane({
     }
   }, [busy, entryId, hasStaged, message, onAction, refresh, stageBeforeCommit]);
 
+  const push = useCallback(async () => {
+    if (busy) return;
+    const api = window.electronAPI?.gitLocal;
+    if (!api) {
+      onAction('Tauri runtime not available');
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await api.push(entryId);
+      if (result?.success) {
+        setLastCommitSha(null);
+        onAction('Pushed to remote.');
+        refresh();
+      } else {
+        onAction(result?.error || 'Push failed');
+      }
+    } catch (err) {
+      onAction(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, entryId, onAction, refresh]);
+
   if (!status) return <div className="gf-pane-empty">Loading…</div>;
-  if (totalChanges === 0) {
-    return <div className="gf-pane-empty">Working tree clean.</div>;
+  if (totalChanges === 0 && !lastCommitSha) {
+    return (
+      <div className="gf-changes-layout">
+        <div className="gf-changes-list">
+          <div className="gf-pane-empty">Working tree clean.</div>
+        </div>
+        <div className="gf-diff-pane">
+          <div className="gf-commit-box">
+            <div className="gf-commit-actions">
+              {status && (status.ahead > 0) && (
+                <span className="gf-commit-hint">
+                  ↑ {status.ahead} unpushed commit{status.ahead > 1 ? 's' : ''}
+                </span>
+              )}
+              <button
+                type="button"
+                className="gf-mini-btn primary"
+                disabled={busy || !(status?.ahead > 0)}
+                onClick={push}
+              >
+                {busy ? 'Pushing…' : 'Push'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
   return (
     <div className="gf-changes-layout">
@@ -584,14 +636,25 @@ function ChangesPane({
               />
               Stage all before commit
             </label>
-            <button
-              type="button"
-              className="gf-mini-btn primary"
-              disabled={busy || !message.trim() || (!hasStaged && !stageBeforeCommit)}
-              onClick={commit}
-            >
-              Commit
-            </button>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button
+                type="button"
+                className="gf-mini-btn primary"
+                disabled={busy || !message.trim() || (!hasStaged && !stageBeforeCommit)}
+                onClick={commit}
+              >
+                Commit
+              </button>
+              <button
+                type="button"
+                className="gf-mini-btn"
+                disabled={busy || !(status?.ahead > 0)}
+                onClick={push}
+                title={status?.ahead > 0 ? `Push ${status.ahead} commit(s)` : 'Nothing to push'}
+              >
+                {busy ? 'Pushing…' : `Push${status?.ahead > 0 ? ` ↑${status.ahead}` : ''}`}
+              </button>
+            </div>
           </div>
         </div>
       </div>
