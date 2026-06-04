@@ -1,118 +1,188 @@
 # AutoInstallManager
 
-环境及软件自动管理安装工具 - 像软件商店一样管理开发环境
+环境及软件自动管理安装工具，桌面端基于 Tauri 2 + Rust，前端基于 React + TypeScript + Vite。
 
-## 功能特性
+## 功能概览
 
-- **环境体检**：扫描本机已安装的开发工具（Node、Git、CMake 等）及其版本、路径、健康状态
-- **版本选择与安装**：从官方源选择版本、自动下载安装、校验、回滚
-- **依赖检查**：自动解析工具依赖关系（DAG）
-- **方案管理**：导入导出环境配置（如"Web+Tauri"、"C++ Toolchain"）
-- **跨平台支持**：Win + macOS 双平台自动识别（x64/arm64）
-- **可扩展性**：通过 YAML 定义新工具，无需修改主程序
+- 环境体检：扫描本机已安装的开发工具及版本
+- 版本选择与安装：从工具定义中选择版本，自动下载、校验、解压和回滚
+- 依赖检查：解析工具依赖关系
+- GitHub 集成：仓库管理、Release 上传、Catalog 定义发布
+- 跨平台支持：Windows / macOS / Linux，自动识别 x64 / arm64
+- 可扩展 Catalog：通过 YAML 定义新工具
 
 ## 技术栈
 
-- **包管理器**: pnpm（workspace 支持 monorepo）
-- **构建工具**: Vite（renderer）+ tsup（packages）+ electron-builder（打包）
-- **UI 框架**: React 18 + TypeScript
-- **状态管理**: Zustand
-- **IPC 通信**: electron-trpc
-- **Schema 验证**: Zod + JSON Schema
-- **本地存储**: better-sqlite3
-- **YAML 解析**: js-yaml
-- **日志**: pino
+- 桌面端：Tauri 2 + Rust
+- 前端：React 18 + TypeScript + Vite + Zustand
+- 包管理：pnpm workspace + Cargo
+- 后端依赖：tokio、reqwest、git2、zip/tar
+- Token 存储：AES-256-GCM 本地加密
 
 ## 项目结构
 
-```
+```text
 AutoInstallManager/
-├── apps/
-│   ├── main/          # Electron 主进程
-│   └── renderer/      # Electron 渲染进程（UI）
-├── packages/
-│   ├── core/          # 核心业务逻辑
-│   ├── adapters/      # 平台适配器
-│   └── shared/        # 共享类型和工具
-├── catalog/           # 工具定义文件
-├── schemas/           # JSON Schema 文件
-├── tests/             # 测试
-└── docs/              # 文档
+├─ apps/
+│  └─ renderer/        # React + Vite 渲染进程
+├─ packages/
+│  └─ shared/          # 共享 TS 类型、Schema 和工具函数
+├─ src-tauri/          # Tauri Rust 后端
+│  ├─ src/
+│  ├─ Cargo.toml
+│  └─ tauri.conf.json
+├─ catalog/            # 工具定义 YAML
+├─ schemas/            # JSON Schema
+├─ package.json
+└─ pnpm-workspace.yaml
 ```
 
-## 开发
+## 环境准备
+
+1. 安装 Rust 1.77+：https://rustup.rs/
+2. 安装 pnpm：
 
 ```bash
-# 安装依赖
-pnpm install
-
-# 启动开发环境
-pnpm dev
-
-# 构建
-pnpm build
-
-# 运行测试
-pnpm test
-
-# 代码检查
-pnpm lint
-
-# 格式化代码
-pnpm format
+npm i -g pnpm
 ```
 
-## 开发计划
+3. 安装平台依赖：
 
-详见 [快速开始指南](QUICKSTART.md)
+- Windows：Visual Studio Build Tools / MSVC 工具链
+- macOS：Xcode Command Line Tools
+- Linux：参考 Tauri 2 prerequisites 安装 WebKitGTK、OpenSSL、build-essential 等依赖
 
-### 当前进度
+4. 安装项目依赖：
 
-✅ **Week 1: 架构冻结** (100%)
-- 分层依赖图、模块边界、IPC 合同草案、错误码规范
+```bash
+pnpm install
+```
 
-✅ **Week 2: 工程骨架** (100%)
-- Monorepo 结构、基础构建配置、Electron 应用框架
+## 开发命令
 
-✅ **Week 3: 合同与校验** (100%)
-- JSON Schema 定义
-- Zod Schema 定义
-- Catalog 校验器实现
-- 示例工具定义（Node.js, Git）
+```bash
+# 启动完整 Tauri 开发环境
+# 会先启动 apps/renderer 的 Vite dev server，再编译并启动 Tauri
+pnpm dev
 
-✅ **Week 4: Catalog MVP** (100%)
-- Catalog 加载器
-- 平台过滤（win/mac + x64/arm64）
-- GitHub Releases 版本解析
-- 版本比较和排序
+# 只启动前端，用浏览器调试 UI
+pnpm renderer:dev
 
-✅ **Week 5: Scanner MVP** (100%)
-- 环境扫描器
-- 版本检测和 PATH 探测
-- 平台适配器（Windows 注册表、macOS pkgutil）
-- 冲突检测
+# 只构建前端产物
+pnpm renderer:build
 
-🚧 **Week 6: Installer MVP** (进行中)
-- 安装器核心
-- 平台安装器
-- 任务管理
+# 构建共享包
+pnpm shared:build
 
-### Phase 0-1（Week 1-4）
+# 监听构建共享包
+pnpm --filter @aim/shared dev
+```
 
-- ✅ Week 1: 架构冻结
-- ✅ Week 2: 工程骨架
-- ✅ Week 3: 合同与校验
-- ✅ Week 4: Catalog MVP
+Tauri 开发模式默认使用：
 
-### Phase 2（Week 5-6）
+- 前端地址：`http://localhost:5173`
+- Rust 后端目录：`src-tauri/`
+- 配置文件：`src-tauri/tauri.conf.json`
 
-- ✅ Week 5: Scanner MVP
-- 🚧 Week 6: Installer MVP
+## 验证命令
 
-## 文档
+```bash
+# TypeScript 类型检查
+pnpm typecheck
 
-- [架构决策记录（ADR）](docs/ADR/)
-- [开发路线图](docs/roadmap/)
+# ESLint
+pnpm lint
+
+# Vitest
+pnpm test
+
+# 格式化
+pnpm format
+
+# 只验证 Rust/Tauri 后端能否编译
+cd src-tauri
+cargo build --no-default-features
+```
+
+## 打包命令
+
+```bash
+# 构建当前平台安装包
+# 会自动执行 tauri.conf.json 里的 beforeBuildCommand：
+# pnpm --filter @aim/renderer build
+pnpm build
+
+# 等价写法
+pnpm tauri build
+
+# Windows：只打 NSIS 安装包
+pnpm tauri build --bundles nsis
+
+# Windows：只打 MSI 安装包
+pnpm tauri build --bundles msi
+
+# Windows：同时打 NSIS 和 MSI
+pnpm tauri build --bundles nsis,msi
+
+# 只构建 release 可执行文件，不生成安装包
+pnpm tauri build --no-bundle
+```
+
+打包输出目录：
+
+```text
+src-tauri/target/release/bundle/
+```
+
+Windows 常见输出子目录：
+
+```text
+src-tauri/target/release/bundle/nsis/
+src-tauri/target/release/bundle/msi/
+```
+
+## 常用 Tauri 命令
+
+```bash
+# 查看 Tauri CLI 帮助
+pnpm tauri --help
+
+# 查看打包参数
+pnpm tauri build --help
+
+# 生成或更新应用图标
+pnpm tauri icon icon_installer.ico
+```
+
+## 常见问题
+
+### Windows 链接时报 `CVT1100: 资源重复。类型: MANIFEST`
+
+不要在 `src-tauri/build.rs` 里额外调用 `embed_manifest`。Tauri 2 会生成自身的 Windows resource/manifest，手动嵌入会导致链接阶段出现重复 `MANIFEST` 资源。
+
+如需声明 UAC 权限级别，应通过 `tauri_build::WindowsAttributes::app_manifest(...)` 交给 Tauri 统一写入 resource。
+
+### Windows 运行时报 `请求的操作需要提升。 (os error 740)`
+
+Windows 会对带有 `install`、`setup`、`manager` 等关键词的 exe 名称做安装器启发式检测。如果 manifest 没有明确声明权限级别，`auto-install-manager.exe` 可能会被要求提权。
+
+当前项目通过 `src-tauri/windows-app-manifest.xml` 声明：
+
+```xml
+<requestedExecutionLevel level="asInvoker" uiAccess="false" />
+```
+
+并在 `build.rs` 中通过 Tauri build API 注入：
+
+```rust
+fn main() {
+    let windows = tauri_build::WindowsAttributes::new()
+        .app_manifest(include_str!("windows-app-manifest.xml"));
+    let attrs = tauri_build::Attributes::new().windows_attributes(windows);
+
+    tauri_build::try_build(attrs).expect("failed to run Tauri build script");
+}
+```
 
 ## License
 

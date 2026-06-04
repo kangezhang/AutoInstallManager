@@ -1,3 +1,78 @@
+/* Design tokens — single source of truth for color, spacing, type, shadows. */
+
+:root {
+  /* ---------- Color: neutrals ---------- */
+  --c-bg: #f7f8fa;
+  --c-surface: #ffffff;
+  --c-surface-2: #f1f3f6;
+  --c-surface-hover: #eef1f5;
+  --c-border: #e3e6eb;
+  --c-border-strong: #cdd2d9;
+  --c-text: #1a1f2c;
+  --c-text-muted: #5b6472;
+  --c-text-subtle: #8b95a3;
+
+  /* ---------- Color: brand & accents ---------- */
+  --c-brand: #2563eb;
+  --c-brand-hover: #1d4ed8;
+  --c-brand-soft: #eff4ff;
+  --c-brand-on: #ffffff;
+
+  --c-success: #15803d;
+  --c-success-soft: #e8f6ee;
+  --c-warning: #b45309;
+  --c-warning-soft: #fdf3e3;
+  --c-danger: #b91c1c;
+  --c-danger-soft: #fbecec;
+
+  /* ---------- Sidebar dark surface ---------- */
+  --c-nav-bg: #0f172a;
+  --c-nav-border: rgba(148, 163, 184, 0.12);
+  --c-nav-text: rgba(226, 232, 240, 0.85);
+  --c-nav-text-muted: rgba(148, 163, 184, 0.7);
+  --c-nav-active-bg: rgba(37, 99, 235, 0.18);
+  --c-nav-active-text: #ffffff;
+  --c-nav-active-bar: #60a5fa;
+
+  /* ---------- Spacing ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* ---------- Radius ---------- */
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+
+  /* ---------- Typography ---------- */
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-base: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 24px;
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+
+  /* ---------- Shadows ---------- */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 2px 8px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 8px 24px rgba(15, 23, 42, 0.12);
+
+  /* ---------- Layout ---------- */
+  --sidebar-w: 232px;
+  --content-max: 1280px;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -5,9 +80,11 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
+    'Helvetica Neue', sans-serif;
+  font-size: var(--fs-base);
+  color: var(--c-text);
+  background: var(--c-bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -15,4 +92,35 @@ body {
 #root {
   width: 100vw;
   height: 100vh;
+}
+
+/* ---------- Common primitives ---------- */
+button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--c-brand);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+code {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 0.92em;
+  background: var(--c-surface-2);
+  border-radius: var(--r-sm);
+  padding: 1px 5px;
 }

@@ -1,0 +1,7 @@
+# Generated
+target/
+gen/
+Cargo.lock
+
+# Tauri generated icons (will be regenerated)
+icons/

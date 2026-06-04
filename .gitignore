@@ -8,6 +8,14 @@ build/
 out/
 *.tsbuildinfo
 
+# Tauri / Rust
+src-tauri/target/
+src-tauri/gen/
+src-tauri/Cargo.lock
+src-tauri/icons/*.png
+src-tauri/icons/*.ico
+src-tauri/icons/*.icns
+
 # Environment
 .env
 .env.local
@@ -33,6 +41,6 @@ pnpm-debug.log*
 # Testing
 coverage/
 
-# Electron
-release/
+# Tooling caches
+.playwright-mcp/
 .claude

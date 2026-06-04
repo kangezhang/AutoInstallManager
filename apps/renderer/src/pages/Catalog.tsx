@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { GitHubAccountSummary, ReleaseDiscoverResult, ToolDefinition } from '@aim/shared';
 import { useCatalogStore, useInstallerStore, useScannerStore } from '../store';
 import { IconButton } from '../components/ui/IconButton';
@@ -380,6 +381,7 @@ const inferInstallTypeFromAssetType = (assetType: AssetType): InstallType => {
 };
 
 export function Catalog() {
+  const navigate = useNavigate();
   const { tools, loading, error, loadTools } = useCatalogStore();
   const { createTask, startTask, tasks, loadTasks } = useInstallerStore();
   const { report, scanning, startScan } = useScannerStore();
@@ -1056,6 +1058,12 @@ export function Catalog() {
         <div className="catalog-header-actions">
           <IconButton className="btn btn-primary" onClick={handleOpenQuickAdd} icon="add" label="Quick Add from GitHub" />
           <IconButton className="btn btn-primary" onClick={handleOpenAddTool} icon="form" label="Add Custom Tool" />
+          <IconButton
+            className="btn btn-primary"
+            onClick={() => navigate('/repository-upload')}
+            icon="upload"
+            label="Publish Package"
+          />
           <IconButton
             className="btn btn-secondary"
             onClick={() => {

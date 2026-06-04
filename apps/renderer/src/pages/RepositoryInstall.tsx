@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { ReleaseDiscoverResult, ToolDefinition } from '@aim/shared';
+import type { GitHubAccountSummary, ReleaseDiscoverResult, ToolDefinition } from '@aim/shared';
 import { useCatalogStore, useInstallerStore } from '../store';
 import { IconButton } from '../components/ui/IconButton';
 import './RepositoryInstall.css';
@@ -225,6 +225,13 @@ export function RepositoryInstall() {
   const { tools, loading, error, loadTools } = useCatalogStore();
   const { tasks, loadTasks, createTask } = useInstallerStore();
 
+  // ── Account / repo picker (shared for Add modal + detail auto-discover) ──
+  const [accounts, setAccounts] = useState<GitHubAccountSummary[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState('');
+  const [repoList, setRepoList] = useState<string[]>([]);
+  const [repoListLoading, setRepoListLoading] = useState(false);
+
+  // ── Add modal ──
   const [addOpen, setAddOpen] = useState(false);
   const [addOverwrite, setAddOverwrite] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
@@ -232,7 +239,13 @@ export function RepositoryInstall() {
   const [addSuccess, setAddSuccess] = useState<string | null>(null);
   const [addForm, setAddForm] = useState<AddRepoForm>(() => createDefaultAddForm());
   const [addYaml, setAddYaml] = useState('');
+  const [addCustomRepo, setAddCustomRepo] = useState(false);
+  const [addDiscover, setAddDiscover] = useState<ReleaseDiscoverResult | null>(null);
+  const [addDiscoverLoading, setAddDiscoverLoading] = useState(false);
+  const [addDiscoverError, setAddDiscoverError] = useState<string | null>(null);
+  const [addSelectedTag, setAddSelectedTag] = useState('');
 
+  // ── Detail panel ──
   const [detailRepo, setDetailRepo] = useState<string | null>(null);
   const [detailSelection, setDetailSelection] = useState<Record<string, ToolSelectState>>({});
   const [detailVersions, setDetailVersions] = useState<Record<string, string[]>>({});
@@ -249,11 +262,13 @@ export function RepositoryInstall() {
   const [detailAddLoading, setDetailAddLoading] = useState(false);
   const [detailAddError, setDetailAddError] = useState<string | null>(null);
   const [detailAddSuccess, setDetailAddSuccess] = useState<string | null>(null);
-  const [detailDiscoverSource, setDetailDiscoverSource] = useState('');
   const [detailDiscoverLoading, setDetailDiscoverLoading] = useState(false);
   const [detailDiscoverError, setDetailDiscoverError] = useState<string | null>(null);
   const [detailDiscoverResult, setDetailDiscoverResult] = useState<ReleaseDiscoverResult | null>(null);
   const [detailSelectedTag, setDetailSelectedTag] = useState('');
+
+  // Prevent re-triggering detail auto-discover when repo hasn't changed
+  const lastDetailDiscoveredRepo = useRef<string | null>(null);
 
   const githubTools = useMemo(() => tools.filter(isGithubTool), [tools]);
 
@@ -291,6 +306,34 @@ export function RepositoryInstall() {
     () => tasks.some((task) => IN_PROGRESS.has(task.status)),
     [tasks]
   );
+
+  // Load accounts + tools on mount
+  useEffect(() => {
+    if (!window.electronAPI) return;
+    loadTools().catch(console.error);
+    loadTasks().catch(console.error);
+    window.electronAPI.githubAccount
+      .list()
+      .then((result) => {
+        setAccounts(result.accounts);
+        const defaultId =
+          result.defaultAccountId ||
+          result.accounts.find((a) => a.isDefault)?.id ||
+          result.accounts[0]?.id ||
+          '';
+        setSelectedAccountId(defaultId);
+        if (defaultId) {
+          setRepoListLoading(true);
+          window.electronAPI!.githubRepo
+            .listMine({ accountId: defaultId, perPage: 100, maxPages: 3 })
+            .then((repos) => setRepoList(repos.map((r) => r.fullName).sort()))
+            .catch(console.error)
+            .finally(() => setRepoListLoading(false));
+        }
+      })
+      .catch(console.error);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!window.electronAPI || !hasInProgressTasks) return;
@@ -336,12 +379,52 @@ export function RepositoryInstall() {
     setDetailAddLoading(false);
     setDetailAddError(null);
     setDetailAddSuccess(null);
-    setDetailDiscoverSource(`https://github.com/${detailRepoData.repo}`);
     setDetailDiscoverLoading(false);
     setDetailDiscoverError(null);
     setDetailDiscoverResult(null);
     setDetailSelectedTag('');
+    // Auto-discover when opening detail panel for a repo
+    lastDetailDiscoveredRepo.current = null;
   }, [detailRepoData]);
+
+  // Auto-discover releases when detail panel opens for a repo
+  useEffect(() => {
+    if (!detailRepoData || !window.electronAPI?.release) return;
+    if (lastDetailDiscoveredRepo.current === detailRepoData.repo) return;
+    lastDetailDiscoveredRepo.current = detailRepoData.repo;
+
+    setDetailDiscoverLoading(true);
+    setDetailDiscoverError(null);
+    window.electronAPI.release
+      .discoverFromLink({
+        source: detailRepoData.repo,
+        accountId: selectedAccountId || undefined,
+      })
+      .then((result) => {
+        if (result.releases.length === 0) {
+          setDetailDiscoverError('No releases found for this repository.');
+          return;
+        }
+        setDetailDiscoverResult(result);
+        const preferredTag =
+          result.suggestedTag && result.releases.some((r) => r.tag === result.suggestedTag)
+            ? result.suggestedTag
+            : result.releases[0].tag;
+        setDetailSelectedTag(preferredTag);
+        const selectedRelease = result.releases.find((r) => r.tag === preferredTag);
+        if (selectedRelease) {
+          applyReleaseAssetsToForm(selectedRelease, {
+            repo: result.repo,
+            suggestedAssetName: result.suggestedAssetName,
+          });
+        }
+      })
+      .catch((err) => {
+        setDetailDiscoverError(err instanceof Error ? err.message : 'Failed to fetch releases');
+      })
+      .finally(() => setDetailDiscoverLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detailRepoData, selectedAccountId]);
 
   useEffect(() => {
     if (!detailRepo) return;
@@ -362,12 +445,23 @@ export function RepositoryInstall() {
     if (!addOpen) return;
     const onEsc = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !addLoading) {
-        setAddOpen(false);
+        closeAddModal();
       }
     };
     window.addEventListener('keydown', onEsc);
     return () => window.removeEventListener('keydown', onEsc);
   }, [addOpen, addLoading]);
+
+  const closeAddModal = () => {
+    setAddOpen(false);
+    setAddForm(createDefaultAddForm());
+    setAddOverwrite(false);
+    setAddError(null);
+    setAddDiscover(null);
+    setAddDiscoverError(null);
+    setAddSelectedTag('');
+    setAddCustomRepo(false);
+  };
 
   const appendDetailLog = (message: string) => {
     const time = new Date().toLocaleTimeString();
@@ -433,46 +527,105 @@ export function RepositoryInstall() {
     });
   };
 
-  const handleDiscoverReleases = async () => {
-    if (!window.electronAPI?.release) return;
-    if (!detailDiscoverSource.trim()) {
-      setDetailDiscoverError('Please paste a GitHub repository/release/asset link.');
+  const loadRepos = async (accountId: string) => {
+    if (!window.electronAPI?.githubRepo || !accountId) {
+      setRepoList([]);
       return;
     }
+    setRepoListLoading(true);
+    try {
+      const repos = await window.electronAPI.githubRepo.listMine({ accountId, perPage: 100, maxPages: 3 });
+      setRepoList(repos.map((r) => r.fullName).sort());
+    } catch {
+      setRepoList([]);
+    } finally {
+      setRepoListLoading(false);
+    }
+  };
 
-    setDetailDiscoverLoading(true);
-    setDetailDiscoverError(null);
+  // Discover releases for the Add modal when a repo is selected
+  const handleAddDiscoverRepo = async (repo: string) => {
+    if (!window.electronAPI?.release || !repo) return;
+    setAddDiscoverLoading(true);
+    setAddDiscoverError(null);
+    setAddDiscover(null);
+    setAddSelectedTag('');
     try {
       const result = await window.electronAPI.release.discoverFromLink({
-        source: detailDiscoverSource.trim(),
+        source: repo,
+        accountId: selectedAccountId || undefined,
       });
-      if (result.releases.length === 0) {
-        throw new Error('No release was found for this source.');
-      }
-
-      setDetailDiscoverResult(result);
+      if (result.releases.length === 0) throw new Error('No releases found for this repository.');
+      setAddDiscover(result);
       const preferredTag =
-        result.suggestedTag && result.releases.some((release) => release.tag === result.suggestedTag)
+        result.suggestedTag && result.releases.some((r) => r.tag === result.suggestedTag)
           ? result.suggestedTag
           : result.releases[0].tag;
-      setDetailSelectedTag(preferredTag);
-
-      const selectedRelease = result.releases.find((release) => release.tag === preferredTag);
+      setAddSelectedTag(preferredTag);
+      // Pre-fill form from discovered assets
+      const repoName = normalizeRepo(repo).split('/')[1] || 'tool';
+      const selectedRelease = result.releases.find((r) => r.tag === preferredTag);
       if (selectedRelease) {
-        applyReleaseAssetsToForm(selectedRelease, {
+        const inferredId = inferToolIdFromAsset(
+          selectedRelease.assets[0]?.name || '',
+          repoName
+        );
+        const mappedAssets: RepoAssetRow[] = selectedRelease.assets.map((a) => ({
+          platform: inferAssetPlatform(a.name),
+          arch: inferAssetArch(a.name),
+          type: inferAssetType(a.name),
+          url: toVersionTemplateUrl(a.downloadUrl, selectedRelease.tag),
+        }));
+        const primaryType = mappedAssets[0]?.type;
+        const nextInstallType: RepoInstallType =
+          primaryType === 'msi' ? 'msi' : primaryType === 'pkg' ? 'pkg' : primaryType === 'exe' ? 'exe' : 'archive';
+        setAddForm((prev) => ({
+          ...prev,
           repo: result.repo,
-          suggestedAssetName: result.suggestedAssetName,
-        });
+          id: inferredId,
+          name: inferredId,
+          homepage: `https://github.com/${result.repo}`,
+          validateCommand: `${inferredId} --version`,
+          installType: nextInstallType,
+          assets: mappedAssets.length > 0 ? mappedAssets : prev.assets,
+        }));
+      } else {
+        setAddForm((prev) => ({ ...prev, repo: result.repo }));
       }
-    } catch (discoverError) {
-      setDetailDiscoverResult(null);
-      setDetailSelectedTag('');
-      setDetailDiscoverError(
-        discoverError instanceof Error ? discoverError.message : 'Failed to detect releases from source link'
-      );
+    } catch (e) {
+      setAddDiscoverError(e instanceof Error ? e.message : 'Failed to fetch releases');
     } finally {
-      setDetailDiscoverLoading(false);
+      setAddDiscoverLoading(false);
     }
+  };
+
+  const handleAddSelectTag = (tag: string) => {
+    setAddSelectedTag(tag);
+    if (!addDiscover) return;
+    const release = addDiscover.releases.find((r) => r.tag === tag);
+    if (!release) return;
+    const mappedAssets: RepoAssetRow[] = release.assets.map((a) => ({
+      platform: inferAssetPlatform(a.name),
+      arch: inferAssetArch(a.name),
+      type: inferAssetType(a.name),
+      url: toVersionTemplateUrl(a.downloadUrl, release.tag),
+    }));
+    if (mappedAssets.length === 0) return;
+    const repoName = normalizeRepo(addDiscover.repo).split('/')[1] || 'tool';
+    const inferredId = inferToolIdFromAsset(release.assets[0]?.name || '', repoName);
+    const primaryType = mappedAssets[0]?.type;
+    const nextInstallType: RepoInstallType =
+      primaryType === 'msi' ? 'msi' : primaryType === 'pkg' ? 'pkg' : primaryType === 'exe' ? 'exe' : 'archive';
+    setAddForm((prev) => ({
+      ...prev,
+      assets: mappedAssets,
+      id: inferredId,
+      name: prev.name === prev.id || !prev.name ? inferredId : prev.name,
+      validateCommand: prev.validateCommand === `${prev.id} --version` || !prev.validateCommand
+        ? `${inferredId} --version`
+        : prev.validateCommand,
+      installType: nextInstallType,
+    }));
   };
 
   const handleSelectDiscoveredRelease = (tag: string) => {
@@ -551,9 +704,7 @@ export function RepositoryInstall() {
 
       await loadTools();
       setAddSuccess(`Saved ${createdTool.id} (${createdTool.versionSource.type})`);
-      setAddOpen(false);
-      setAddForm(createDefaultAddForm());
-      setAddOverwrite(false);
+      closeAddModal();
     } catch (saveError) {
       setAddError(saveError instanceof Error ? saveError.message : 'Failed to save repository tool');
     } finally {
@@ -736,17 +887,35 @@ export function RepositoryInstall() {
     <div className="repo-install">
       <div className="repo-header">
         <h1>Repository Catalog</h1>
-        <p>Catalog-style cards. Use Details to upload releases and install selected versions.</p>
+        <p>Select your GitHub account to browse repositories and install tools from releases.</p>
       </div>
 
       <div className="repo-header-actions">
-        <IconButton className="btn btn-primary" onClick={() => setAddOpen(true)} icon="add" label="Add" />
+        {/* Account selector */}
+        <select
+          className="repo-account-select"
+          value={selectedAccountId}
+          onChange={(e) => {
+            const id = e.target.value;
+            setSelectedAccountId(id);
+            loadRepos(id).catch(console.error);
+          }}
+        >
+          {accounts.length === 0 ? (
+            <option value="">No GitHub account</option>
+          ) : (
+            accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.username}@{a.host}{a.isDefault ? ' (default)' : ''}
+              </option>
+            ))
+          )}
+        </select>
+        <IconButton className="btn btn-primary" onClick={() => setAddOpen(true)} icon="add" label="Add from Repo" />
         <IconButton
           className="btn btn-secondary"
           onClick={() => {
-            Promise.all([loadTools(), loadTasks()]).catch((refreshError) => {
-              console.error('Failed to refresh repository view:', refreshError);
-            });
+            Promise.all([loadTools(), loadTasks()]).catch(console.error);
           }}
           icon="refresh"
           label="Refresh"
@@ -764,7 +933,7 @@ export function RepositoryInstall() {
       {loading && <div className="repo-empty">Loading repositories...</div>}
 
       {!loading && repositories.length === 0 && (
-        <div className="repo-empty">No repository cards yet. Click Add to create one.</div>
+        <div className="repo-empty">No repository tools yet. Click "Add from Repo" to discover and add tools from a GitHub repository.</div>
       )}
 
       <div className="repo-grid">
@@ -797,7 +966,7 @@ export function RepositoryInstall() {
           className="repo-modal-backdrop"
           onClick={() => {
             if (!addLoading) {
-              setAddOpen(false);
+              closeAddModal();
             }
           }}
         >
@@ -806,7 +975,7 @@ export function RepositoryInstall() {
               <h2>Add Repository Tool</h2>
               <IconButton
                 className="repo-modal-close"
-                onClick={() => setAddOpen(false)}
+                onClick={() => closeAddModal()}
                 disabled={addLoading}
                 aria-label="Close add repository modal"
                 icon="close"
@@ -816,26 +985,78 @@ export function RepositoryInstall() {
 
             <div className="repo-modal-body">
               <div className="repo-form-grid">
-                <label>
-                  Repository (owner/repo)
-                  <input
-                    value={addForm.repo}
-                    onChange={(event) => {
-                      const repoValue = event.target.value;
-                      const repo = normalizeRepo(repoValue);
-                      const guessedName = repo ? repo.split('/')[1] : '';
-                      setAddForm((prev) => ({
-                        ...prev,
-                        repo: repoValue,
-                        id: prev.id || ensureToolId(guessedName),
-                        name: prev.name || guessedName,
-                        homepage: prev.homepage || (repo ? `https://github.com/${repo}` : ''),
-                      }));
-                    }}
-                    placeholder="owner/repo"
-                    disabled={addLoading}
-                  />
+                <label className="repo-form-wide">
+                  Repository
+                  {addCustomRepo ? (
+                    <div className="repo-discover-row">
+                      <input
+                        value={addForm.repo}
+                        onChange={(e) => setAddForm((prev) => ({ ...prev, repo: e.target.value }))}
+                        placeholder="owner/repo or GitHub URL"
+                        disabled={addLoading || addDiscoverLoading}
+                        autoFocus
+                      />
+                      <IconButton
+                        className="btn btn-secondary btn-small"
+                        onClick={() => {
+                          setAddCustomRepo(false);
+                          if (addForm.repo) handleAddDiscoverRepo(addForm.repo).catch(console.error);
+                        }}
+                        disabled={addLoading || addDiscoverLoading}
+                        icon="detect"
+                        label={addDiscoverLoading ? 'Loading...' : 'Fetch Releases'}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-small"
+                        onClick={() => setAddCustomRepo(false)}
+                        disabled={addLoading}
+                        title="Back to list"
+                      >↩</button>
+                    </div>
+                  ) : (
+                    <div className="repo-discover-row">
+                      <select
+                        value={addForm.repo}
+                        onChange={(e) => {
+                          if (e.target.value === '__custom__') {
+                            setAddCustomRepo(true);
+                            setAddForm((prev) => ({ ...prev, repo: '' }));
+                          } else if (e.target.value) {
+                            setAddForm((prev) => ({ ...prev, repo: e.target.value }));
+                            handleAddDiscoverRepo(e.target.value).catch(console.error);
+                          }
+                        }}
+                        disabled={addLoading || repoListLoading || addDiscoverLoading}
+                      >
+                        <option value="">{repoListLoading ? 'Loading repos...' : repoList.length === 0 ? 'No repos (add account in Settings)' : '— select a repository —'}</option>
+                        {repoList.map((r) => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                        <option value="__custom__">Enter manually…</option>
+                      </select>
+                      {addDiscoverLoading && <span className="repo-discover-hint">Fetching releases…</span>}
+                    </div>
+                  )}
+                  {addDiscoverError && <span className="repo-error" style={{ fontSize: '0.8rem' }}>{addDiscoverError}</span>}
                 </label>
+
+                {addDiscover && (
+                  <label>
+                    Release (version to use as template)
+                    <select
+                      value={addSelectedTag}
+                      onChange={(e) => handleAddSelectTag(e.target.value)}
+                      disabled={addLoading}
+                    >
+                      {addDiscover.releases.map((r) => (
+                        <option key={r.id} value={r.tag}>
+                          {r.tag}{r.name ? ` — ${r.name}` : ''} ({r.assets.length} asset{r.assets.length !== 1 ? 's' : ''})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
 
                 <label>
                   Tool ID
@@ -1053,7 +1274,7 @@ export function RepositoryInstall() {
               <div className="repo-modal-actions">
                 <IconButton
                   className="btn btn-secondary"
-                  onClick={() => setAddOpen(false)}
+                  onClick={() => closeAddModal()}
                   disabled={addLoading}
                   icon="cancel"
                   label="Cancel"
@@ -1114,30 +1335,16 @@ export function RepositoryInstall() {
               <section className="repo-detail-block">
                 <div className="repo-tools-header">
                   <h3>Add Tool in This Repository</h3>
+                  {detailDiscoverLoading && <span className="repo-discover-hint">Fetching releases…</span>}
+                  {!detailDiscoverLoading && detailDiscoverResult && (
+                    <span className="repo-discover-hint">
+                      {detailDiscoverResult.releases.length} release(s) found
+                    </span>
+                  )}
                 </div>
                 <p className="repo-help-text">
-                  One repository can contain multiple software artifacts. Add more tool definitions
-                  here, then install them below.
+                  One repository can contain multiple software artifacts. Releases are auto-fetched — select a version below and add a tool definition.
                 </p>
-                <div className="repo-discover-row">
-                  <input
-                    value={detailDiscoverSource}
-                    onChange={(event) => setDetailDiscoverSource(event.target.value)}
-                    placeholder="Paste owner/repo, release page URL, or asset download URL"
-                    disabled={detailAddLoading || detailDiscoverLoading}
-                  />
-                  <IconButton
-                    className="btn btn-secondary"
-                    onClick={() => {
-                      handleDiscoverReleases().catch((discoverError) => {
-                        console.error('Failed to discover releases:', discoverError);
-                      });
-                    }}
-                    disabled={detailAddLoading || detailDiscoverLoading}
-                    icon="detect"
-                    label={detailDiscoverLoading ? 'Detecting...' : 'Detect Releases'}
-                  />
-                </div>
                 {detailDiscoverError && <p className="repo-error">Error: {detailDiscoverError}</p>}
                 {detailDiscoverResult && (
                   <div className="repo-discover-meta">

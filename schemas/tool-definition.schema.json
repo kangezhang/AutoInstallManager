@@ -71,6 +71,11 @@
                 "type": "string",
                 "pattern": "^[^/]+/[^/]+$",
                 "description": "GitHub repository in format owner/repo"
+              },
+              "tagPrefix": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Optional release tag prefix used to isolate one tool from a shared repository"
               }
             }
           }
@@ -127,7 +132,7 @@
           },
           "url": {
             "type": "string",
-            "description": "Download URL (may contain {version} placeholder)"
+            "description": "Download URL (may contain {version} and {tag} placeholders)"
           },
           "type": {
             "type": "string",

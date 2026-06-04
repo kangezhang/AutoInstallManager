@@ -12,6 +12,7 @@ export const ArchEnumSchema = z.enum(['x64', 'arm64', 'ia32']);
 const GitHubReleasesSourceSchema = z.object({
   type: z.literal('githubReleases'),
   repo: z.string().regex(/^[^/]+\/[^/]+$/, 'Must be in format owner/repo'),
+  tagPrefix: z.string().min(1).optional(),
 });
 
 const StaticListSourceSchema = z.object({

@@ -12,6 +12,7 @@ export interface ReleaseUploadRequest {
   overwriteAsset?: boolean;
   draft?: boolean;
   prerelease?: boolean;
+  targetBranch?: string;
 }
 
 /**
