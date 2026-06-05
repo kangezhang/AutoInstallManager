@@ -202,6 +202,14 @@ export const translations = {
     'repos.localEmpty': 'Open a folder to add a local repo.',
     'repos.removeTitle': 'Remove from list',
     'repos.removeConfirm': 'Remove "{name}" from the list? Files on disk are kept.',
+    'repos.untrackIgnored': 'Apply default ignores',
+    'repos.untrackIgnoredConfirm':
+      'Add common build/cache ignores to "{name}" and stop tracking matching files? Files stay on disk.',
+    'repos.untrackIgnoredDone': 'Stopped tracking {count} ignored file(s).',
+    'repos.untrackIgnoredRulesAdded': 'Added {rules} ignore rule(s).',
+    'repos.untrackIgnoredDoneWithRules':
+      'Added {rules} ignore rule(s) and stopped tracking {count} ignored file(s).',
+    'repos.untrackIgnoredNone': 'No tracked files currently match ignore rules.',
     'repos.noAccountHint': 'Connect a GitHub account in Settings.',
     'repos.reposLoading': 'Loading repositories…',
     'repos.noRepos': 'No repositories.',
@@ -491,6 +499,13 @@ export const translations = {
     'repos.localEmpty': '打开文件夹以添加本地仓库。',
     'repos.removeTitle': '从列表移除',
     'repos.removeConfirm': '将"{name}"从列表移除？磁盘上的文件不会被删除。',
+    'repos.untrackIgnored': '应用默认忽略规则',
+    'repos.untrackIgnoredConfirm':
+      '为"{name}"补充常见构建/缓存忽略规则，并停止跟踪匹配文件？文件会保留在磁盘上。',
+    'repos.untrackIgnoredDone': '已停止跟踪 {count} 个已忽略文件。',
+    'repos.untrackIgnoredRulesAdded': '已新增 {rules} 条忽略规则。',
+    'repos.untrackIgnoredDoneWithRules': '已新增 {rules} 条忽略规则，并停止跟踪 {count} 个已忽略文件。',
+    'repos.untrackIgnoredNone': '没有已被跟踪且命中忽略规则的文件。',
     'repos.noAccountHint': '请在设置中添加 GitHub 账户。',
     'repos.reposLoading': '正在加载仓库…',
     'repos.noRepos': '暂无仓库。',

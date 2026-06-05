@@ -5,7 +5,9 @@
 use crate::accounts;
 use crate::error::{AppError, AppResult};
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
+use reqwest::header::{
+    HeaderMap, HeaderName, HeaderValue, AUTHORIZATION, CONTENT_TYPE, USER_AGENT,
+};
 use reqwest::{Client, Method, Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -58,7 +60,11 @@ async fn read_error(resp: Response) -> String {
             if !text.trim().is_empty() {
                 return text.trim().to_string();
             }
-            format!("{} {}", status.as_u16(), status.canonical_reason().unwrap_or(""))
+            format!(
+                "{} {}",
+                status.as_u16(),
+                status.canonical_reason().unwrap_or("")
+            )
         }
         Err(_) => format!("{}", status),
     }
@@ -180,28 +186,52 @@ pub struct RepoCreateRequest {
 pub async fn create_repo(payload: RepoCreateRequest) -> AppResult<RepoInfo> {
     let name = payload.name.trim();
     if name.is_empty() {
-        return Err(AppError::Validation("Repository name cannot be empty".into()));
+        return Err(AppError::Validation(
+            "Repository name cannot be empty".into(),
+        ));
     }
-    let visibility = payload.visibility.as_deref().map(|v| v.trim().to_lowercase());
+    let visibility = payload
+        .visibility
+        .as_deref()
+        .map(|v| v.trim().to_lowercase());
     let is_private = match visibility.as_deref() {
         Some("private") => true,
         Some("public") => false,
         _ => payload.private.unwrap_or(false),
     };
-    let gitignore = payload.gitignore_template.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty());
-    let license = payload.license_template.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty());
-    let add_readme = payload.add_readme.unwrap_or(payload.auto_init.unwrap_or(false));
+    let gitignore = payload
+        .gitignore_template
+        .as_deref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty());
+    let license = payload
+        .license_template
+        .as_deref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty());
+    let add_readme = payload
+        .add_readme
+        .unwrap_or(payload.auto_init.unwrap_or(false));
     let auto_init = add_readme || gitignore.is_some() || license.is_some();
 
-    let token = resolve_token(payload.token.as_deref(), payload.account_id.as_deref(), true)?
-        .ok_or_else(|| AppError::Auth("Token required".into()))?;
+    let token = resolve_token(
+        payload.token.as_deref(),
+        payload.account_id.as_deref(),
+        true,
+    )?
+    .ok_or_else(|| AppError::Auth("Token required".into()))?;
 
     let mut body = serde_json::json!({
         "name": name,
         "private": is_private,
         "auto_init": auto_init,
     });
-    if let Some(desc) = payload.description.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+    if let Some(desc) = payload
+        .description
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
         body["description"] = serde_json::Value::String(desc.to_string());
     }
     if let Some(g) = gitignore {
@@ -241,7 +271,11 @@ pub struct RepoQueryRequest {
 }
 
 pub async fn get_repo(payload: RepoQueryRequest) -> AppResult<RepoInfo> {
-    let token = resolve_token(payload.token.as_deref(), payload.account_id.as_deref(), false)?;
+    let token = resolve_token(
+        payload.token.as_deref(),
+        payload.account_id.as_deref(),
+        false,
+    )?;
     let (owner, repo) = parse_repo(&payload.repo)?;
     let resp = http()
         .get(format!("{}/repos/{}/{}", API_BASE, owner, repo))
@@ -272,8 +306,12 @@ pub struct ListMineRequest {
 }
 
 pub async fn list_mine(payload: ListMineRequest) -> AppResult<Vec<RepoInfo>> {
-    let token = resolve_token(payload.token.as_deref(), payload.account_id.as_deref(), true)?
-        .ok_or_else(|| AppError::Auth("Token required".into()))?;
+    let token = resolve_token(
+        payload.token.as_deref(),
+        payload.account_id.as_deref(),
+        true,
+    )?
+    .ok_or_else(|| AppError::Auth("Token required".into()))?;
     let per_page = payload.per_page.unwrap_or(100).clamp(1, 100);
     let max_pages = payload.max_pages.unwrap_or(5).clamp(1, 20);
 
@@ -358,17 +396,30 @@ pub struct CommitsRequest {
 }
 
 pub async fn list_commits(payload: CommitsRequest) -> AppResult<Vec<CommitInfo>> {
-    let token = resolve_token(payload.token.as_deref(), payload.account_id.as_deref(), false)?;
+    let token = resolve_token(
+        payload.token.as_deref(),
+        payload.account_id.as_deref(),
+        false,
+    )?;
     let (owner, repo) = parse_repo(&payload.repo)?;
     let per_page = payload.per_page.unwrap_or(20).clamp(1, 100);
     let mut url = format!(
         "{}/repos/{}/{}/commits?per_page={}",
         API_BASE, owner, repo, per_page
     );
-    if let Some(b) = payload.branch.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+    if let Some(b) = payload
+        .branch
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
         url.push_str(&format!("&sha={}", urlencoding::encode(b)));
     }
-    let resp = http().get(&url).headers(json_headers(token.as_deref())).send().await?;
+    let resp = http()
+        .get(&url)
+        .headers(json_headers(token.as_deref()))
+        .send()
+        .await?;
     if !resp.status().is_success() {
         return Err(AppError::GitHub(format!(
             "Failed to fetch commits: {}",
@@ -416,14 +467,31 @@ pub struct ForkRequest {
 }
 
 pub async fn fork_repo(payload: ForkRequest) -> AppResult<RepoInfo> {
-    let token = resolve_token(payload.token.as_deref(), payload.account_id.as_deref(), true)?
-        .ok_or_else(|| AppError::Auth("Token required".into()))?;
+    let token = resolve_token(
+        payload.token.as_deref(),
+        payload.account_id.as_deref(),
+        true,
+    )?
+    .ok_or_else(|| AppError::Auth("Token required".into()))?;
     let (owner, repo) = parse_repo(&payload.repo)?;
     let mut body = serde_json::Map::new();
-    if let Some(org) = payload.organization.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-        body.insert("organization".into(), serde_json::Value::String(org.to_string()));
+    if let Some(org) = payload
+        .organization
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        body.insert(
+            "organization".into(),
+            serde_json::Value::String(org.to_string()),
+        );
     }
-    if let Some(name) = payload.name.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+    if let Some(name) = payload
+        .name
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
         body.insert("name".into(), serde_json::Value::String(name.to_string()));
     }
     if let Some(only) = payload.default_branch_only {
@@ -448,7 +516,11 @@ pub async fn fork_repo(payload: ForkRequest) -> AppResult<RepoInfo> {
 }
 
 pub async fn list_forks(payload: RepoQueryRequest) -> AppResult<Vec<RepoInfo>> {
-    let token = resolve_token(payload.token.as_deref(), payload.account_id.as_deref(), false)?;
+    let token = resolve_token(
+        payload.token.as_deref(),
+        payload.account_id.as_deref(),
+        false,
+    )?;
     let (owner, repo) = parse_repo(&payload.repo)?;
     let resp = http()
         .get(format!(
@@ -502,7 +574,11 @@ pub async fn clone_repo(payload: CloneRequest) -> GitOperationResult {
             error: Some("Destination path is required".into()),
         };
     }
-    let token = match resolve_token(payload.token.as_deref(), payload.account_id.as_deref(), false) {
+    let token = match resolve_token(
+        payload.token.as_deref(),
+        payload.account_id.as_deref(),
+        false,
+    ) {
         Ok(t) => t,
         Err(e) => {
             return GitOperationResult {
@@ -701,14 +777,20 @@ pub struct PullRequestCreateRequest {
 }
 
 pub async fn create_pr(payload: PullRequestCreateRequest) -> AppResult<PullRequestInfo> {
-    let token = resolve_token(payload.token.as_deref(), payload.account_id.as_deref(), true)?
-        .ok_or_else(|| AppError::Auth("Token required".into()))?;
+    let token = resolve_token(
+        payload.token.as_deref(),
+        payload.account_id.as_deref(),
+        true,
+    )?
+    .ok_or_else(|| AppError::Auth("Token required".into()))?;
     let (owner, repo) = parse_repo(&payload.repo)?;
     let title = payload.title.trim();
     let head = payload.head.trim();
     let base = payload.base.trim();
     if title.is_empty() {
-        return Err(AppError::Validation("Pull request title is required".into()));
+        return Err(AppError::Validation(
+            "Pull request title is required".into(),
+        ));
     }
     if head.is_empty() {
         return Err(AppError::Validation("Head branch is required".into()));
@@ -723,7 +805,12 @@ pub async fn create_pr(payload: PullRequestCreateRequest) -> AppResult<PullReque
         "draft": payload.draft.unwrap_or(false),
         "maintainer_can_modify": payload.maintainer_can_modify.unwrap_or(true),
     });
-    if let Some(b) = payload.body.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+    if let Some(b) = payload
+        .body
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
         body["body"] = serde_json::Value::String(b.to_string());
     }
     let mut headers = json_headers(Some(&token));
@@ -759,7 +846,11 @@ pub struct PullRequestListRequest {
 }
 
 pub async fn list_prs(payload: PullRequestListRequest) -> AppResult<Vec<PullRequestInfo>> {
-    let token = resolve_token(payload.token.as_deref(), payload.account_id.as_deref(), false)?;
+    let token = resolve_token(
+        payload.token.as_deref(),
+        payload.account_id.as_deref(),
+        false,
+    )?;
     let (owner, repo) = parse_repo(&payload.repo)?;
     let per_page = payload.per_page.unwrap_or(30).clamp(1, 100);
     let state = payload.state.unwrap_or_else(|| "open".into());
@@ -874,12 +965,16 @@ fn parse_source_link(input: &str) -> AppResult<ParsedSource> {
         .map_err(|_| AppError::Validation("Invalid GitHub source link".into()))?;
     let host = url.host_str().unwrap_or("");
     if !host.eq_ignore_ascii_case("github.com") && !host.eq_ignore_ascii_case("www.github.com") {
-        return Err(AppError::Validation("Only github.com links are supported".into()));
+        return Err(AppError::Validation(
+            "Only github.com links are supported".into(),
+        ));
     }
     let parts: Vec<&str> = url.path_segments().map(|s| s.collect()).unwrap_or_default();
     let parts: Vec<&str> = parts.into_iter().filter(|s| !s.is_empty()).collect();
     if parts.len() < 2 {
-        return Err(AppError::Validation("Invalid GitHub repository link".into()));
+        return Err(AppError::Validation(
+            "Invalid GitHub repository link".into(),
+        ));
     }
     let owner = parts[0];
     let repo = parts[1].trim_end_matches(".git");
@@ -889,20 +984,34 @@ fn parse_source_link(input: &str) -> AppResult<ParsedSource> {
         asset_name: None,
     };
     if parts.len() >= 5 && parts[2] == "releases" && parts[3] == "tag" {
-        parsed.tag = Some(urlencoding::decode(parts[4]).unwrap_or_default().to_string());
+        parsed.tag = Some(
+            urlencoding::decode(parts[4])
+                .unwrap_or_default()
+                .to_string(),
+        );
         return Ok(parsed);
     }
     if parts.len() >= 6 && parts[2] == "releases" && parts[3] == "download" {
-        parsed.tag = Some(urlencoding::decode(parts[4]).unwrap_or_default().to_string());
+        parsed.tag = Some(
+            urlencoding::decode(parts[4])
+                .unwrap_or_default()
+                .to_string(),
+        );
         parsed.asset_name = Some(parts[5..].join("/"));
         return Ok(parsed);
     }
     Ok(parsed)
 }
 
-pub async fn discover_releases(payload: ReleaseDiscoverRequest) -> AppResult<ReleaseDiscoverResult> {
+pub async fn discover_releases(
+    payload: ReleaseDiscoverRequest,
+) -> AppResult<ReleaseDiscoverResult> {
     let parsed = parse_source_link(&payload.source)?;
-    let token = resolve_token(payload.token.as_deref(), payload.account_id.as_deref(), false)?;
+    let token = resolve_token(
+        payload.token.as_deref(),
+        payload.account_id.as_deref(),
+        false,
+    )?;
     let (owner, repo) = parse_repo(&parsed.repo)?;
     let resp = http()
         .get(format!(
@@ -971,10 +1080,8 @@ pub async fn fetch_release_versions(
         )));
     }
     let items: Vec<ReleaseApiItem> = resp.json().await?;
-    let semver_re = regex::Regex::new(
-        r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$",
-    )
-    .unwrap();
+    let semver_re =
+        regex::Regex::new(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$").unwrap();
     let mut seen = std::collections::HashSet::new();
     let mut out = Vec::new();
     for item in items {
@@ -1066,7 +1173,11 @@ async fn get_or_create_release(
         repo,
         urlencoding::encode(tag)
     );
-    let resp = http().get(&url).headers(json_headers(Some(token))).send().await?;
+    let resp = http()
+        .get(&url)
+        .headers(json_headers(Some(token)))
+        .send()
+        .await?;
     if resp.status().is_success() {
         return Ok(resp.json::<ReleaseInfo>().await?);
     }
@@ -1163,11 +1274,17 @@ pub async fn upload_release_asset(payload: ReleaseUploadRequest) -> ReleaseUploa
         if tag.is_empty() {
             return Err(AppError::Validation("Tag cannot be empty".into()));
         }
-        let token = resolve_token(payload.token.as_deref(), payload.account_id.as_deref(), true)?
-            .ok_or_else(|| AppError::Auth("Token required".into()))?;
+        let token = resolve_token(
+            payload.token.as_deref(),
+            payload.account_id.as_deref(),
+            true,
+        )?
+        .ok_or_else(|| AppError::Auth("Token required".into()))?;
         let file_path = payload.file_path.trim();
         if file_path.is_empty() {
-            return Err(AppError::Validation("Asset file path cannot be empty".into()));
+            return Err(AppError::Validation(
+                "Asset file path cannot be empty".into(),
+            ));
         }
         let path = std::path::Path::new(file_path);
         let metadata = std::fs::metadata(path)?;
@@ -1201,12 +1318,19 @@ pub async fn upload_release_asset(payload: ReleaseUploadRequest) -> ReleaseUploa
             remove_existing_asset(&owner, &repo, release.id, &asset_name, &token).await?;
         }
 
-        let upload_base = release.upload_url.split('{').next().unwrap_or(&release.upload_url);
+        let upload_base = release
+            .upload_url
+            .split('{')
+            .next()
+            .unwrap_or(&release.upload_url);
         let upload_url = format!("{}?name={}", upload_base, urlencoding::encode(&asset_name));
         let bytes = std::fs::read(path)?;
 
         let mut headers = json_headers(Some(&token));
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/octet-stream"));
+        headers.insert(
+            CONTENT_TYPE,
+            HeaderValue::from_static("application/octet-stream"),
+        );
 
         let resp = http()
             .post(&upload_url)
@@ -1532,19 +1656,26 @@ pub async fn create_repo_from_folder(
             ));
         }
 
-        let token = resolve_token(payload.token.as_deref(), payload.account_id.as_deref(), true)?
-            .ok_or_else(|| AppError::Auth("Token required".into()))?;
+        let token = resolve_token(
+            payload.token.as_deref(),
+            payload.account_id.as_deref(),
+            true,
+        )?
+        .ok_or_else(|| AppError::Auth("Token required".into()))?;
 
         let repo_name = payload.name.trim();
         if repo_name.is_empty() {
-            return Err(AppError::Validation("Repository name cannot be empty".into()));
+            return Err(AppError::Validation(
+                "Repository name cannot be empty".into(),
+            ));
         }
         if !repo_name
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
         {
             return Err(AppError::Validation(
-                "Repository name can only contain letters, numbers, dot, underscore, and hyphen.".into(),
+                "Repository name can only contain letters, numbers, dot, underscore, and hyphen."
+                    .into(),
             ));
         }
 
@@ -1615,8 +1746,8 @@ pub async fn create_repo_from_folder(
             index.write().map_err(|e| e.to_string())?;
             let tree_oid = index.write_tree().map_err(|e| e.to_string())?;
             let tree = repo.find_tree(tree_oid).map_err(|e| e.to_string())?;
-            let signature = git2::Signature::now(&user_name_c, &user_email_c)
-                .map_err(|e| e.to_string())?;
+            let signature =
+                git2::Signature::now(&user_name_c, &user_email_c).map_err(|e| e.to_string())?;
             let commit_oid = repo
                 .commit(
                     Some("HEAD"),

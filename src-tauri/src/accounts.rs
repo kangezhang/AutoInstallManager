@@ -164,8 +164,7 @@ fn decrypt_token(payload: &str) -> AppResult<String> {
         let plain = cipher
             .decrypt(nonce, cipher_bytes)
             .map_err(|e| AppError::Auth(format!("decrypt failed: {e}")))?;
-        return String::from_utf8(plain)
-            .map_err(|e| AppError::Other(format!("utf8: {e}")));
+        return String::from_utf8(plain).map_err(|e| AppError::Other(format!("utf8: {e}")));
     }
     if let Some(rest) = payload.strip_prefix("v1:plain:") {
         let bytes = B64
@@ -250,9 +249,10 @@ pub fn upsert(payload: AccountUpsertRequest) -> AppResult<AccountSummary> {
     let existing_index = if let Some(id) = payload.id.as_deref() {
         store.accounts.iter().position(|a| a.id == id)
     } else {
-        store.accounts.iter().position(|a| {
-            a.username.eq_ignore_ascii_case(&username) && a.host == host
-        })
+        store
+            .accounts
+            .iter()
+            .position(|a| a.username.eq_ignore_ascii_case(&username) && a.host == host)
     };
 
     if let Some(idx) = existing_index {
@@ -276,7 +276,9 @@ pub fn upsert(payload: AccountUpsertRequest) -> AppResult<AccountSummary> {
     }
 
     let token = require_field(payload.token.as_deref().unwrap_or(""), "Token")?;
-    let id = payload.id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let id = payload
+        .id
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     let created = StoredAccount {
         id: id.clone(),
         display_name,
@@ -339,7 +341,9 @@ pub fn get_credential(account_id: Option<&str>) -> AppResult<Option<AccountCrede
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
         .or_else(|| store.default_account_id.clone());
-    let Some(target) = target else { return Ok(None) };
+    let Some(target) = target else {
+        return Ok(None);
+    };
     let Some(account) = store.accounts.iter().find(|a| a.id == target) else {
         return Ok(None);
     };

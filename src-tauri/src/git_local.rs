@@ -10,13 +10,13 @@
 use crate::error::{AppError, AppResult};
 use crate::paths::app_data_dir;
 use git2::{
-    BranchType, DiffOptions, ErrorCode, IndexAddOption, Repository, RepositoryState, Sort, Status,
-    StatusOptions, build::CheckoutBuilder,
+    build::CheckoutBuilder, BranchType, DiffOptions, ErrorCode, IndexAddOption, Repository,
+    RepositoryState, Sort, Status, StatusOptions,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::sync::Mutex;
 use uuid::Uuid;
 
@@ -65,6 +65,12 @@ pub struct LocalStatus {
     pub ahead: usize,
     pub behind: usize,
     pub state: String,
+    pub staged_count: usize,
+    pub unstaged_count: usize,
+    pub conflicted_count: usize,
+    pub staged_omitted: usize,
+    pub unstaged_omitted: usize,
+    pub conflicted_omitted: usize,
     pub staged: Vec<WorkingChange>,
     pub unstaged: Vec<WorkingChange>,
     pub conflicted: Vec<WorkingChange>,
@@ -290,6 +296,8 @@ fn current_branch_name(repo: &Repository) -> Option<String> {
     }
 }
 
+const STATUS_LIST_LIMIT: usize = 800;
+
 fn upstream_for_head(repo: &Repository) -> AppResult<(Option<String>, usize, usize)> {
     let Some(branch_name) = current_branch_name(repo) else {
         return Ok((None, 0, 0));
@@ -303,11 +311,7 @@ fn upstream_for_head(repo: &Repository) -> AppResult<(Option<String>, usize, usi
         Err(e) if e.code() == ErrorCode::NotFound => return Ok((None, 0, 0)),
         Err(e) => return Err(e.into()),
     };
-    let upstream_name = upstream
-        .name()
-        .ok()
-        .flatten()
-        .map(|s| s.to_string());
+    let upstream_name = upstream.name().ok().flatten().map(|s| s.to_string());
     let local_oid = local
         .get()
         .target()
@@ -334,13 +338,11 @@ pub fn summary(registry: &Registry, id: &str) -> AppResult<LocalRepoSummary> {
     let (upstream, ahead, behind) = upstream_for_head(&repo).unwrap_or((None, 0, 0));
 
     let mut opts = StatusOptions::new();
-    opts.include_untracked(true).recurse_untracked_dirs(true);
+    opts.include_untracked(true).recurse_untracked_dirs(false);
     let statuses = repo.statuses(Some(&mut opts))?;
     let change_count = statuses
         .iter()
-        .filter(|e| {
-            !e.status().is_empty() && !e.status().contains(Status::IGNORED)
-        })
+        .filter(|e| !e.status().is_empty() && !e.status().contains(Status::IGNORED))
         .count();
 
     Ok(LocalRepoSummary {
@@ -370,7 +372,7 @@ pub fn status(registry: &Registry, id: &str) -> AppResult<LocalStatus> {
 
     let mut opts = StatusOptions::new();
     opts.include_untracked(true)
-        .recurse_untracked_dirs(true)
+        .recurse_untracked_dirs(false)
         .renames_head_to_index(true)
         .renames_index_to_workdir(true);
     let statuses = repo.statuses(Some(&mut opts))?;
@@ -378,6 +380,9 @@ pub fn status(registry: &Registry, id: &str) -> AppResult<LocalStatus> {
     let mut staged = Vec::new();
     let mut unstaged = Vec::new();
     let mut conflicted = Vec::new();
+    let mut staged_count = 0usize;
+    let mut unstaged_count = 0usize;
+    let mut conflicted_count = 0usize;
     for entry in statuses.iter() {
         let s = entry.status();
         if s.is_empty() || s.contains(Status::IGNORED) {
@@ -385,12 +390,15 @@ pub fn status(registry: &Registry, id: &str) -> AppResult<LocalStatus> {
         }
         let path = entry.path().unwrap_or("").to_string();
         if s.contains(Status::CONFLICTED) {
-            conflicted.push(WorkingChange {
-                path: path.clone(),
-                status: "conflicted".into(),
-                staged: false,
-                conflicted: true,
-            });
+            conflicted_count += 1;
+            if conflicted.len() < STATUS_LIST_LIMIT {
+                conflicted.push(WorkingChange {
+                    path: path.clone(),
+                    status: "conflicted".into(),
+                    staged: false,
+                    conflicted: true,
+                });
+            }
             continue;
         }
         let index_bits = Status::INDEX_NEW
@@ -404,20 +412,26 @@ pub fn status(registry: &Registry, id: &str) -> AppResult<LocalStatus> {
             | Status::WT_RENAMED
             | Status::WT_TYPECHANGE;
         if s.intersects(index_bits) {
-            staged.push(WorkingChange {
-                path: path.clone(),
-                status: status_label(s & index_bits).to_string(),
-                staged: true,
-                conflicted: false,
-            });
+            staged_count += 1;
+            if staged.len() < STATUS_LIST_LIMIT {
+                staged.push(WorkingChange {
+                    path: path.clone(),
+                    status: status_label(s & index_bits).to_string(),
+                    staged: true,
+                    conflicted: false,
+                });
+            }
         }
         if s.intersects(wt_bits) {
-            unstaged.push(WorkingChange {
-                path,
-                status: status_label(s & wt_bits).to_string(),
-                staged: false,
-                conflicted: false,
-            });
+            unstaged_count += 1;
+            if unstaged.len() < STATUS_LIST_LIMIT {
+                unstaged.push(WorkingChange {
+                    path,
+                    status: status_label(s & wt_bits).to_string(),
+                    staged: false,
+                    conflicted: false,
+                });
+            }
         }
     }
 
@@ -428,6 +442,12 @@ pub fn status(registry: &Registry, id: &str) -> AppResult<LocalStatus> {
         ahead,
         behind,
         state: repo_state_str(repo.state()).to_string(),
+        staged_count,
+        unstaged_count,
+        conflicted_count,
+        staged_omitted: staged_count.saturating_sub(staged.len()),
+        unstaged_omitted: unstaged_count.saturating_sub(unstaged.len()),
+        conflicted_omitted: conflicted_count.saturating_sub(conflicted.len()),
         staged,
         unstaged,
         conflicted,
@@ -488,7 +508,10 @@ pub fn log(
             author_email: author.email().unwrap_or("").to_string(),
             author_when: author.when().seconds(),
             parent_shas: commit.parent_ids().map(|i| i.to_string()).collect(),
-            refs: ref_index.get(&commit.id().to_string()).cloned().unwrap_or_default(),
+            refs: ref_index
+                .get(&commit.id().to_string())
+                .cloned()
+                .unwrap_or_default(),
         });
     }
     Ok(commits)
@@ -504,11 +527,7 @@ pub fn branches(registry: &Registry, id: &str) -> AppResult<Vec<LocalBranch>> {
         if name.is_empty() {
             continue;
         }
-        let full_name = branch
-            .get()
-            .name()
-            .unwrap_or("")
-            .to_string();
+        let full_name = branch.get().name().unwrap_or("").to_string();
         let target_sha = branch.get().target().map(|o| o.to_string());
         let is_remote = matches!(btype, BranchType::Remote);
         let is_head = !is_remote && head_branch.as_deref() == Some(name.as_str());
@@ -519,8 +538,7 @@ pub fn branches(registry: &Registry, id: &str) -> AppResult<Vec<LocalBranch>> {
         if !is_remote {
             if let Ok(up) = branch.upstream() {
                 upstream_name = up.name().ok().flatten().map(|s| s.to_string());
-                if let (Some(local_oid), Some(up_oid)) =
-                    (branch.get().target(), up.get().target())
+                if let (Some(local_oid), Some(up_oid)) = (branch.get().target(), up.get().target())
                 {
                     if let Ok((a, b)) = repo.graph_ahead_behind(local_oid, up_oid) {
                         ahead = a;
@@ -555,7 +573,10 @@ pub fn remotes(registry: &Registry, id: &str) -> AppResult<Vec<LocalRemote>> {
         out.push(LocalRemote {
             name: name.to_string(),
             fetch_url: remote.url().map(|s| s.to_string()),
-            push_url: remote.pushurl().or_else(|| remote.url()).map(|s| s.to_string()),
+            push_url: remote
+                .pushurl()
+                .or_else(|| remote.url())
+                .map(|s| s.to_string()),
         });
     }
     Ok(out)
@@ -584,12 +605,7 @@ pub fn tags(registry: &Registry, id: &str) -> AppResult<Vec<LocalTag>> {
     Ok(out)
 }
 
-pub fn diff_text(
-    registry: &Registry,
-    id: &str,
-    path: &str,
-    staged: bool,
-) -> AppResult<String> {
+pub fn diff_text(registry: &Registry, id: &str, path: &str, staged: bool) -> AppResult<String> {
     let (_entry, repo) = open_repo_by_id(registry, id)?;
     let mut opts = DiffOptions::new();
     opts.pathspec(path).context_lines(3);
@@ -635,8 +651,23 @@ pub fn stage_paths(registry: &Registry, id: &str, paths: Vec<String>) -> AppResu
         return Ok(());
     }
     let (_entry, repo) = open_repo_by_id(registry, id)?;
+    let workdir = repo
+        .workdir()
+        .ok_or_else(|| AppError::Validation("bare repos not supported".into()))?
+        .to_path_buf();
     let mut index = repo.index()?;
-    index.add_all(paths.iter(), IndexAddOption::DEFAULT, None)?;
+    let mut pathspecs = Vec::new();
+    for path in paths {
+        let abs = workdir.join(&path);
+        if abs.is_file() {
+            index.add_path(Path::new(&path))?;
+        } else {
+            pathspecs.push(path);
+        }
+    }
+    if !pathspecs.is_empty() {
+        index.add_all(pathspecs.iter(), IndexAddOption::DEFAULT, None)?;
+    }
     index.write()?;
     Ok(())
 }
@@ -716,6 +747,109 @@ pub fn discard_paths(registry: &Registry, id: &str, paths: Vec<String>) -> AppRe
         }
     }
     Ok(())
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UntrackIgnoredResult {
+    pub removed: usize,
+    pub paths: Vec<String>,
+    pub added_ignores: Vec<String>,
+}
+
+const DEFAULT_LOCAL_GITIGNORE: &[&str] = &[
+    "node_modules/",
+    "dist/",
+    "build/",
+    "out/",
+    "target/",
+    "gen/",
+    ".next/",
+    ".vite/",
+    "coverage/",
+    ".venv/",
+    "venv/",
+    "__pycache__/",
+    "*.pyc",
+    "*.log",
+    "logs/",
+    "tmp/",
+    ".cache/",
+    ".DS_Store",
+    "Thumbs.db",
+    ".idea/",
+    ".vscode/",
+    ".env",
+    ".env.*",
+];
+
+fn ensure_default_gitignore(repo: &Repository) -> AppResult<Vec<String>> {
+    let workdir = repo
+        .workdir()
+        .ok_or_else(|| AppError::Validation("bare repos not supported".into()))?;
+    let gitignore_path = workdir.join(".gitignore");
+    let existing = fs::read_to_string(&gitignore_path).unwrap_or_default();
+    let existing_rules: BTreeSet<String> = existing
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .map(str::to_string)
+        .collect();
+    let missing: Vec<String> = DEFAULT_LOCAL_GITIGNORE
+        .iter()
+        .filter(|rule| !existing_rules.contains(**rule))
+        .map(|rule| (*rule).to_string())
+        .collect();
+
+    if missing.is_empty() {
+        return Ok(missing);
+    }
+
+    let mut next = existing;
+    if !next.is_empty() && !next.ends_with('\n') {
+        next.push('\n');
+    }
+    next.push_str("\n# AutoInstallManager default ignores\n");
+    for rule in &missing {
+        next.push_str(rule);
+        next.push('\n');
+    }
+    fs::write(&gitignore_path, next)?;
+    repo.add_ignore_rule(&missing.join("\n"))?;
+    Ok(missing)
+}
+
+/// Ensure common development artifacts are ignored, then remove any matching
+/// tracked files from the index only. Files remain on disk.
+pub fn untrack_ignored(registry: &Registry, id: &str) -> AppResult<UntrackIgnoredResult> {
+    let (_entry, repo) = open_repo_by_id(registry, id)?;
+    let added_ignores = ensure_default_gitignore(&repo)?;
+    let mut index = repo.index()?;
+    let mut ignored_paths = BTreeSet::new();
+
+    for entry in index.iter() {
+        let path = String::from_utf8_lossy(&entry.path).to_string();
+        if path.is_empty() {
+            continue;
+        }
+        if repo.is_path_ignored(Path::new(&path))? {
+            ignored_paths.insert(path);
+        }
+    }
+
+    for path in &ignored_paths {
+        index.remove_path(Path::new(path))?;
+    }
+    if !ignored_paths.is_empty() {
+        index.write()?;
+    }
+
+    let paths: Vec<String> = ignored_paths.into_iter().collect();
+    Ok(UntrackIgnoredResult {
+        removed: paths.len(),
+        paths,
+        added_ignores,
+    })
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -815,7 +949,7 @@ pub fn commit(registry: &Registry, id: &str, opts: CommitOptions) -> AppResult<C
     })
 }
 
-// ---------------------------------------------------------------- push
+// ---------------------------------------------------------------- push / pull
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -825,48 +959,46 @@ pub struct PushResult {
     pub error: Option<String>,
 }
 
-/// Push the current branch to its upstream remote using the system `git` binary.
-/// Falls back to `git push --set-upstream origin <branch>` when no upstream is set.
-pub fn push(registry: &Registry, id: &str, remote: Option<&str>, branch: Option<&str>, force: bool) -> AppResult<PushResult> {
+/// Pull from the upstream remote using the system `git` binary.
+pub fn pull(
+    registry: &Registry,
+    id: &str,
+    remote_arg: Option<&str>,
+    branch_arg: Option<&str>,
+    rebase: bool,
+) -> AppResult<PushResult> {
     let (_entry, repo) = open_repo_by_id(registry, id)?;
     let workdir = repo
         .workdir()
         .ok_or_else(|| AppError::Validation("bare repos not supported".into()))?
         .to_path_buf();
 
-    // Determine remote name
-    let remote_name = remote.map(|s| s.to_string()).unwrap_or_else(|| {
-        // Try to read upstream remote from HEAD branch
-        repo.head()
-            .ok()
-            .and_then(|h| h.shorthand().map(|s| s.to_string()))
-            .and_then(|branch_name| {
-                repo.find_branch(&branch_name, BranchType::Local).ok()
-            })
-            .and_then(|b| b.upstream().ok())
-            .and_then(|u| u.name().ok().flatten().map(|s| s.to_string()))
-            .and_then(|upstream| {
-                // upstream is like "origin/main" — extract remote name
-                upstream.split('/').next().map(|s| s.to_string())
-            })
-            .unwrap_or_else(|| "origin".to_string())
-    });
-
-    // Determine branch name
-    let branch_name = branch.map(|s| s.to_string()).unwrap_or_else(|| {
+    let branch_name = branch_arg.map(|s| s.to_string()).unwrap_or_else(|| {
         repo.head()
             .ok()
             .and_then(|h| h.shorthand().map(|s| s.to_string()))
             .unwrap_or_else(|| "HEAD".to_string())
     });
 
-    let mut cmd = Command::new("git");
+    let remote_name = remote_arg.map(|s| s.to_string()).unwrap_or_else(|| {
+        repo.find_branch(&branch_name, BranchType::Local)
+            .ok()
+            .and_then(|b| b.upstream().ok())
+            .and_then(|u| u.name().ok().flatten().map(|s| s.to_string()))
+            .and_then(|up| up.split('/').next().map(|s| s.to_string()))
+            .unwrap_or_else(|| "origin".to_string())
+    });
+
+    drop(repo);
+
+    let mut cmd = std::process::Command::new("git");
     cmd.current_dir(&workdir);
-    cmd.arg("push");
-    if force {
-        cmd.arg("--force-with-lease");
+    cmd.env("GIT_TERMINAL_PROMPT", "0");
+    if rebase {
+        cmd.args(["pull", "--rebase"]);
+    } else {
+        cmd.arg("pull");
     }
-    cmd.arg("--set-upstream");
     cmd.arg(&remote_name);
     cmd.arg(&branch_name);
 
@@ -876,10 +1008,96 @@ pub fn push(registry: &Registry, id: &str, remote: Option<&str>, branch: Option<
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-    let combined = if stdout.is_empty() { stderr.clone() } else if stderr.is_empty() { stdout.clone() } else { format!("{}\n{}", stdout, stderr) };
+    let combined = [stdout.trim(), stderr.trim()]
+        .iter()
+        .filter(|s| !s.is_empty())
+        .cloned()
+        .collect::<Vec<_>>()
+        .join("\n");
 
     if output.status.success() {
-        Ok(PushResult { success: true, output: combined, error: None })
+        Ok(PushResult {
+            success: true,
+            output: combined,
+            error: None,
+        })
+    } else {
+        Ok(PushResult {
+            success: false,
+            output: combined.clone(),
+            error: Some(combined),
+        })
+    }
+}
+
+/// Push the current branch to its upstream remote.
+/// Uses the system `git` binary so it inherits the user's full credential
+/// setup (GCM for HTTPS, OpenSSH for SSH) without depending on SSH_AUTH_SOCK.
+pub fn push(
+    registry: &Registry,
+    id: &str,
+    remote_arg: Option<&str>,
+    branch_arg: Option<&str>,
+    force: bool,
+) -> AppResult<PushResult> {
+    let (_entry, repo) = open_repo_by_id(registry, id)?;
+    let workdir = repo
+        .workdir()
+        .ok_or_else(|| AppError::Validation("bare repos not supported".into()))?
+        .to_path_buf();
+
+    // Resolve branch name
+    let branch_name = branch_arg.map(|s| s.to_string()).unwrap_or_else(|| {
+        repo.head()
+            .ok()
+            .and_then(|h| h.shorthand().map(|s| s.to_string()))
+            .unwrap_or_else(|| "HEAD".to_string())
+    });
+
+    // Resolve remote name from upstream config or default to "origin"
+    let remote_name = remote_arg.map(|s| s.to_string()).unwrap_or_else(|| {
+        repo.find_branch(&branch_name, BranchType::Local)
+            .ok()
+            .and_then(|b| b.upstream().ok())
+            .and_then(|u| u.name().ok().flatten().map(|s| s.to_string()))
+            .and_then(|up| up.split('/').next().map(|s| s.to_string()))
+            .unwrap_or_else(|| "origin".to_string())
+    });
+
+    // Drop repo borrow before spawning subprocess
+    drop(repo);
+
+    let mut cmd = std::process::Command::new("git");
+    cmd.current_dir(&workdir);
+    // Inherit full environment (HOME, SSH_AUTH_SOCK, PATH, etc.)
+    // Disable interactive prompts — fail fast if credentials are missing
+    cmd.env("GIT_TERMINAL_PROMPT", "0");
+    cmd.args(["push", "--set-upstream"]);
+    if force {
+        cmd.arg("--force-with-lease");
+    }
+    cmd.arg(&remote_name);
+    cmd.arg(&branch_name);
+
+    let output = cmd
+        .output()
+        .map_err(|e| AppError::Validation(format!("failed to run git: {}", e)))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    let combined = [stdout.trim(), stderr.trim()]
+        .iter()
+        .filter(|s| !s.is_empty())
+        .cloned()
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    if output.status.success() {
+        Ok(PushResult {
+            success: true,
+            output: combined,
+            error: None,
+        })
     } else {
         Ok(PushResult {
             success: false,

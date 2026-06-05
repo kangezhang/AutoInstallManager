@@ -190,7 +190,12 @@ impl Installer {
         }
     }
 
-    pub fn create_task(&self, tool: &ToolDefinition, version: &str, task_type: &str) -> InstallTask {
+    pub fn create_task(
+        &self,
+        tool: &ToolDefinition,
+        version: &str,
+        task_type: &str,
+    ) -> InstallTask {
         let id = uuid::Uuid::new_v4().to_string();
         let created_at = now_iso();
         let task = InstallTask {
@@ -226,8 +231,7 @@ impl Installer {
     }
 
     pub async fn list_tasks(&self) -> Vec<InstallTask> {
-        let mut tasks: Vec<InstallTask> =
-            self.tasks.lock().unwrap().values().cloned().collect();
+        let mut tasks: Vec<InstallTask> = self.tasks.lock().unwrap().values().cloned().collect();
         let state = self.state.read().await;
         let known_tool_ids: std::collections::HashSet<String> = tasks
             .iter()
@@ -350,7 +354,8 @@ impl Installer {
         match &result {
             Ok(r) => {
                 if r.success {
-                    if let (Some(v), Some(p)) = (r.version.as_deref(), r.installed_path.as_deref()) {
+                    if let (Some(v), Some(p)) = (r.version.as_deref(), r.installed_path.as_deref())
+                    {
                         self.complete_task(&task_id, v, p, true);
                     }
                 } else if let Some(err) = r.error.as_deref() {
@@ -374,7 +379,9 @@ impl Installer {
         task_id: &str,
     ) -> AppResult<InstallResult> {
         self.update_task(task_id, "pending", "Resolving version...", 5.0);
-        let target_version = self.resolve_target_version(&tool, options.version.as_deref()).await?;
+        let target_version = self
+            .resolve_target_version(&tool, options.version.as_deref())
+            .await?;
         self.update_task(
             task_id,
             "pending",
@@ -383,12 +390,20 @@ impl Installer {
         );
 
         let asset = select_asset(&tool)?;
-        let target_dir = resolve_target_dir(&tool, &target_version.version, options.target_dir.as_deref());
+        let target_dir = resolve_target_dir(
+            &tool,
+            &target_version.version,
+            options.target_dir.as_deref(),
+        );
         self.update_task(task_id, "pending", "Preparing target directory...", 10.0);
         let backup_path = prepare_target_dir(&target_dir, options.force.unwrap_or(false))?;
 
         self.update_task(task_id, "downloading", "Downloading...", 12.0);
-        let download_url = render_template(&asset.url, &target_version.version, target_version.tag.as_deref());
+        let download_url = render_template(
+            &asset.url,
+            &target_version.version,
+            target_version.tag.as_deref(),
+        );
         let token = resolve_tool_token(&tool).await?;
         let temp = std::env::temp_dir().join("autoinstall").join(task_id);
         fs::create_dir_all(&temp)?;
@@ -404,7 +419,11 @@ impl Installer {
             &download_path,
             move |bytes, total| {
                 let percent = if let Some(t) = total {
-                    if t > 0 { 12.0 + (bytes as f32 / t as f32) * 60.0 } else { 12.0 }
+                    if t > 0 {
+                        12.0 + (bytes as f32 / t as f32) * 60.0
+                    } else {
+                        12.0
+                    }
                 } else {
                     12.0
                 };
@@ -604,12 +623,9 @@ impl Installer {
             }
             VersionSource::GithubReleases { repo, tag_prefix } => {
                 let token = resolve_tool_token(tool).await?;
-                let versions = github::fetch_release_versions(
-                    repo,
-                    token.as_deref(),
-                    tag_prefix.as_deref(),
-                )
-                .await?;
+                let versions =
+                    github::fetch_release_versions(repo, token.as_deref(), tag_prefix.as_deref())
+                        .await?;
                 if requested == "latest" {
                     let v = versions
                         .first()
@@ -652,10 +668,7 @@ struct VersionResolved {
 }
 
 async fn resolve_tool_token(tool: &ToolDefinition) -> AppResult<Option<String>> {
-    let account_id = tool
-        .auth
-        .as_ref()
-        .and_then(|a| a.github_account_id.clone());
+    let account_id = tool.auth.as_ref().and_then(|a| a.github_account_id.clone());
     let cred = accounts::get_credential(account_id.as_deref())?;
     Ok(cred.map(|c| c.token))
 }
@@ -666,9 +679,7 @@ fn select_asset(tool: &ToolDefinition) -> AppResult<Asset> {
         .iter()
         .find(|a| a.platform == info.os && a.arch == info.arch)
         .cloned()
-        .ok_or_else(|| {
-            AppError::Install(format!("No asset found for {}-{}", info.os, info.arch))
-        })
+        .ok_or_else(|| AppError::Install(format!("No asset found for {}-{}", info.os, info.arch)))
 }
 
 fn render_template(template: &str, version: &str, tag: Option<&str>) -> String {
@@ -754,7 +765,9 @@ fn file_name_from_url(resolved: &str, original: &str) -> String {
             .and_then(|mut s| s.next_back().map(str::to_string))
             .filter(|s| !s.is_empty())
     }
-    from(original).or_else(|| from(resolved)).unwrap_or_else(|| "download".into())
+    from(original)
+        .or_else(|| from(resolved))
+        .unwrap_or_else(|| "download".into())
 }
 
 async fn download_with_progress<F>(
@@ -889,9 +902,9 @@ async fn validate_install(
     if command.trim().is_empty() {
         return Err(AppError::Install("Validation command is empty".into()));
     }
-    let output = run_shell(&command).await.map_err(|e| {
-        AppError::Install(format!("Validation command failed: {}", e))
-    })?;
+    let output = run_shell(&command)
+        .await
+        .map_err(|e| AppError::Install(format!("Validation command failed: {}", e)))?;
     let combined = format!("{}\n{}", output.0, output.1).trim().to_string();
     let parse_mode = tool.validate.parse.as_str();
     match parse_mode {
@@ -911,7 +924,9 @@ async fn validate_install(
                 .ok_or_else(|| AppError::Install("regex parse mode requires pattern".into()))?;
             let re = regex::Regex::new(pattern)
                 .map_err(|e| AppError::Install(format!("invalid regex: {}", e)))?;
-            let captured = re.captures(&combined).and_then(|c| c.get(1).or_else(|| c.get(0)));
+            let captured = re
+                .captures(&combined)
+                .and_then(|c| c.get(1).or_else(|| c.get(0)));
             let Some(m) = captured else {
                 return Err(AppError::Install(
                     "Validation failed: output does not match validate.pattern".into(),
@@ -943,7 +958,9 @@ async fn validate_install(
 
 fn extract_semver(text: &str) -> Option<String> {
     let re = regex::Regex::new(r"v?(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)").unwrap();
-    re.captures(text).and_then(|c| c.get(1)).map(|m| m.as_str().to_string())
+    re.captures(text)
+        .and_then(|c| c.get(1))
+        .map(|m| m.as_str().to_string())
 }
 
 fn version_match(detected: &str, expected: &str) -> bool {

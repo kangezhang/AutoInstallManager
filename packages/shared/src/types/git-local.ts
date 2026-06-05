@@ -35,6 +35,12 @@ export interface LocalStatus {
   ahead: number;
   behind: number;
   state: string;
+  stagedCount?: number;
+  unstagedCount?: number;
+  conflictedCount?: number;
+  stagedOmitted?: number;
+  unstagedOmitted?: number;
+  conflictedOmitted?: number;
   staged: WorkingChange[];
   unstaged: WorkingChange[];
   conflicted: WorkingChange[];
@@ -78,6 +84,12 @@ export interface LocalCommitResult {
   sha: string;
   shortSha: string;
   summary: string;
+}
+
+export interface LocalUntrackIgnoredResult {
+  removed: number;
+  paths: string[];
+  addedIgnores: string[];
 }
 
 export interface LocalCommitOptions {

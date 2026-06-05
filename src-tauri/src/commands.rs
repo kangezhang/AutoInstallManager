@@ -28,10 +28,7 @@ fn resolve_resource_dir(handle: &AppHandle) -> Option<std::path::PathBuf> {
 }
 
 #[tauri::command]
-pub async fn catalog_load(
-    handle: AppHandle,
-    state: State<'_, AppState>,
-) -> AppResult<()> {
+pub async fn catalog_load(handle: AppHandle, state: State<'_, AppState>) -> AppResult<()> {
     let resource_dir = resolve_resource_dir(&handle);
     let loaded = tokio::task::spawn_blocking(move || catalog::load_catalog(resource_dir))
         .await
@@ -44,7 +41,10 @@ pub async fn catalog_load(
 #[tauri::command]
 pub async fn catalog_list_tools(state: State<'_, AppState>) -> AppResult<Vec<ToolDefinition>> {
     let catalog = state.catalog.read().await;
-    Ok(catalog.as_ref().map(|c| c.tools.clone()).unwrap_or_default())
+    Ok(catalog
+        .as_ref()
+        .map(|c| c.tools.clone())
+        .unwrap_or_default())
 }
 
 #[tauri::command]
@@ -77,12 +77,14 @@ pub async fn catalog_get_versions(
             .map(|v| v.trim_start_matches('v').to_string())
             .collect()),
         catalog::VersionSource::GithubReleases { repo, tag_prefix } => {
-            let account_id = tool
-                .auth
-                .as_ref()
-                .and_then(|a| a.github_account_id.clone());
+            let account_id = tool.auth.as_ref().and_then(|a| a.github_account_id.clone());
             let cred = accounts::get_credential(account_id.as_deref())?;
-            github::fetch_release_versions(&repo, cred.as_ref().map(|c| c.token.as_str()), tag_prefix.as_deref()).await
+            github::fetch_release_versions(
+                &repo,
+                cred.as_ref().map(|c| c.token.as_str()),
+                tag_prefix.as_deref(),
+            )
+            .await
         }
         catalog::VersionSource::CustomJsonFeed { .. } => Ok(vec![]),
     }
@@ -161,7 +163,9 @@ pub async fn github_repo_list_mine(
 }
 
 #[tauri::command]
-pub async fn github_repo_get_info(payload: github::RepoQueryRequest) -> AppResult<github::RepoInfo> {
+pub async fn github_repo_get_info(
+    payload: github::RepoQueryRequest,
+) -> AppResult<github::RepoInfo> {
     github::get_repo(payload).await
 }
 
@@ -341,7 +345,10 @@ pub async fn install_list(state: State<'_, AppState>) -> AppResult<Vec<InstallTa
 pub async fn scan_start(state: State<'_, AppState>) -> AppResult<Option<ScanReport>> {
     let tools = {
         let catalog = state.catalog.read().await;
-        catalog.as_ref().map(|c| c.tools.clone()).unwrap_or_default()
+        catalog
+            .as_ref()
+            .map(|c| c.tools.clone())
+            .unwrap_or_default()
     };
     if tools.is_empty() {
         return Ok(None);
@@ -448,11 +455,7 @@ pub fn git_local_set_favorite(
 }
 
 #[tauri::command]
-pub fn git_local_rename(
-    state: State<'_, AppState>,
-    id: String,
-    name: String,
-) -> AppResult<()> {
+pub fn git_local_rename(state: State<'_, AppState>, id: String, name: String) -> AppResult<()> {
     state.git_registry.rename(&id, name)
 }
 
@@ -555,12 +558,20 @@ pub async fn git_local_stage(
 }
 
 #[tauri::command]
-pub async fn git_local_stage_all(
-    state: State<'_, AppState>,
-    id: String,
-) -> AppResult<()> {
+pub async fn git_local_stage_all(state: State<'_, AppState>, id: String) -> AppResult<()> {
     let registry = state.git_registry.clone();
     tokio::task::spawn_blocking(move || git_local::stage_all(&registry, &id))
+        .await
+        .map_err(|e| AppError::Other(format!("task: {}", e)))?
+}
+
+#[tauri::command]
+pub async fn git_local_untrack_ignored(
+    state: State<'_, AppState>,
+    id: String,
+) -> AppResult<git_local::UntrackIgnoredResult> {
+    let registry = state.git_registry.clone();
+    tokio::task::spawn_blocking(move || git_local::untrack_ignored(&registry, &id))
         .await
         .map_err(|e| AppError::Other(format!("task: {}", e)))?
 }
@@ -617,6 +628,28 @@ pub async fn git_local_push(
             remote.as_deref(),
             branch.as_deref(),
             force.unwrap_or(false),
+        )
+    })
+    .await
+    .map_err(|e| AppError::Other(format!("task: {}", e)))?
+}
+
+#[tauri::command]
+pub async fn git_local_pull(
+    state: State<'_, AppState>,
+    id: String,
+    remote: Option<String>,
+    branch: Option<String>,
+    rebase: Option<bool>,
+) -> AppResult<git_local::PushResult> {
+    let registry = state.git_registry.clone();
+    tokio::task::spawn_blocking(move || {
+        git_local::pull(
+            &registry,
+            &id,
+            remote.as_deref(),
+            branch.as_deref(),
+            rebase.unwrap_or(false),
         )
     })
     .await

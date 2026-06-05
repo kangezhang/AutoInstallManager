@@ -176,13 +176,8 @@ fn load_from_dir(dir: &Path) -> AppResult<LoadedCatalog> {
             continue;
         }
         let raw = fs::read_to_string(&path)?;
-        let tool: ToolDefinition = serde_yaml::from_str(&raw).map_err(|e| {
-            AppError::Catalog(format!(
-                "Failed to parse {}: {}",
-                path.display(),
-                e
-            ))
-        })?;
+        let tool: ToolDefinition = serde_yaml::from_str(&raw)
+            .map_err(|e| AppError::Catalog(format!("Failed to parse {}: {}", path.display(), e)))?;
         tools.push(tool);
     }
     tools.sort_by(|a, b| a.id.cmp(&b.id));
@@ -223,7 +218,10 @@ pub fn remove_tool_definition(tool_id: &str) -> AppResult<()> {
     if id.is_empty() {
         return Err(AppError::Validation("Tool ID cannot be empty".into()));
     }
-    if !id.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-')) {
+    if !id
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
+    {
         return Err(AppError::Validation(
             "Tool ID contains invalid characters".into(),
         ));

@@ -131,6 +131,11 @@ export const gitLocal = {
   stage: (id: string, paths: string[]) =>
     call<void>('git_local_stage', { id, paths }),
   stageAll: (id: string) => call<void>('git_local_stage_all', { id }),
+  untrackIgnored: (id: string) =>
+    call<{ removed: number; paths: string[]; addedIgnores: string[] }>(
+      'git_local_untrack_ignored',
+      { id }
+    ),
   unstage: (id: string, paths: string[]) =>
     call<void>('git_local_unstage', { id, paths }),
   discard: (id: string, paths: string[]) =>
@@ -143,6 +148,13 @@ export const gitLocal = {
       remote: opts?.remote ?? null,
       branch: opts?.branch ?? null,
       force: opts?.force ?? false,
+    }),
+  pull: (id: string, opts?: { remote?: string; branch?: string; rebase?: boolean }) =>
+    call<{ success: boolean; output: string; error?: string }>('git_local_pull', {
+      id,
+      remote: opts?.remote ?? null,
+      branch: opts?.branch ?? null,
+      rebase: opts?.rebase ?? false,
     }),
 };
 

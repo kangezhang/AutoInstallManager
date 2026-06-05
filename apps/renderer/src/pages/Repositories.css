@@ -410,7 +410,7 @@
   height: 100%;
   display: flex;
   align-items: center;
-  gap: 6px;
+  overflow: hidden;
 }
 
 .gf-graph-line {
@@ -446,8 +446,11 @@
   color: #fff;
   padding: 1px 4px;
   border-radius: 3px;
-  margin-left: 8px;
+  margin-right: 4px;
   letter-spacing: 0.05em;
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 .gf-col-message {
@@ -1119,15 +1122,29 @@
 
 .gf-changes-layout {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: var(--changes-list-w, 280px) 4px minmax(0, 1fr);
   height: 100%;
   min-height: 0;
 }
 
 .gf-changes-list {
-  border-right: 1px solid var(--c-border);
+  border-right: none;
   overflow-y: auto;
   background: var(--c-surface);
+}
+
+.gf-changes-h-resize {
+  width: 4px;
+  cursor: col-resize;
+  background: var(--c-border);
+  transition: background 0.15s;
+  position: relative;
+  z-index: 1;
+}
+
+.gf-changes-h-resize:hover,
+.gf-changes-h-resize:active {
+  background: var(--c-brand);
 }
 
 .gf-changes-toolbar {
@@ -1253,7 +1270,7 @@
 
 .gf-commit-box {
   border-top: 1px solid var(--c-border);
-  padding: 8px 10px;
+  padding: 8px 10px 0;
   background: var(--c-surface);
   display: flex;
   flex-direction: column;
@@ -1490,6 +1507,7 @@
   margin-right: auto;
 }
 
+.gf-ctx-menu {
   position: fixed;
   z-index: 9000;
   background: var(--c-surface);
@@ -1517,6 +1535,15 @@
   background: var(--c-surface-2);
 }
 
+.gf-ctx-menu-item:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.gf-ctx-menu-item:disabled:hover {
+  background: none;
+}
+
 .gf-ctx-menu-sep {
   height: 1px;
   background: var(--c-border);
@@ -1524,3 +1551,56 @@
 }
 
 
+
+/* ---------- NETWORK BAR (push / pull) ---------- */
+
+.gf-network-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 10px;
+  border-top: 1px solid var(--c-border);
+  background: var(--c-surface-2);
+  margin: 0 -10px;
+  flex-wrap: wrap;
+}
+
+.gf-network-progress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+
+.gf-network-done {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--r-sm);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.gf-network-done:hover {
+  background: var(--c-surface-2);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.gf-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--c-border);
+  border-top-color: var(--c-accent, #4a9eff);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}

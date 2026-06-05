@@ -130,6 +130,9 @@ interface MainProps {
 export function LocalRepoMain({ entry, state, onSwitchBottomTab }: MainProps) {
   const { status, commits, loading, refresh, selectedSha, setSelectedSha } = state;
   const headBranch = status?.currentBranch ?? null;
+  const visibleChangeCount =
+    (status?.stagedCount ?? status?.staged.length ?? 0) +
+    (status?.unstagedCount ?? status?.unstaged.length ?? 0);
   return (
     <section className="gf-main">
       <div className="gf-main-header">
@@ -147,7 +150,7 @@ export function LocalRepoMain({ entry, state, onSwitchBottomTab }: MainProps) {
               {status.behind > 0 && (
                 <span className="gf-pill behind">↓ {status.behind}</span>
               )}
-              {status.staged.length + status.unstaged.length > 0 && (
+              {visibleChangeCount > 0 && (
                 <span className="gf-pill changes">
                   ● {status.staged.length + status.unstaged.length}
                 </span>
@@ -201,9 +204,9 @@ export function LocalRepoMain({ entry, state, onSwitchBottomTab }: MainProps) {
               <div className="gf-col-graph">
                 <span className="gf-graph-line" />
                 <span className="gf-graph-dot" />
-                {idx === 0 && <span className="gf-graph-head">HEAD</span>}
               </div>
               <div className="gf-col-message">
+                {idx === 0 && <span className="gf-graph-head">HEAD</span>}
                 {commit.refs.length > 0 && (
                   <span className="gf-ref-tags">
                     {commit.refs.map((r) => (
@@ -269,9 +272,9 @@ export function LocalRepoFooter({
   const localBranches = branches.filter((b) => !b.isRemote);
   const remoteBranches = branches.filter((b) => b.isRemote);
   const totalChanges =
-    (status?.staged.length ?? 0) +
-    (status?.unstaged.length ?? 0) +
-    (status?.conflicted.length ?? 0);
+    (status?.stagedCount ?? status?.staged.length ?? 0) +
+    (status?.unstagedCount ?? status?.unstaged.length ?? 0) +
+    (status?.conflictedCount ?? status?.conflicted.length ?? 0);
 
   return (
     <footer className="gf-bottom local">
@@ -368,16 +371,41 @@ function ChangesPane({
   refresh: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [networkBusy, setNetworkBusy] = useState(false);
+  const [networkStatus, setNetworkStatus] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [stageBeforeCommit, setStageBeforeCommit] = useState(false);
-  const [lastCommitSha, setLastCommitSha] = useState<string | null>(null);
+  const [listW, setListW] = useState(280);
+
+  const startHResize = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = listW;
+    const onMove = (mv: MouseEvent) => {
+      setListW(Math.max(160, Math.min(520, startW + mv.clientX - startX)));
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [listW]);
 
   const totalChanges =
-    (status?.staged.length ?? 0) +
-    (status?.unstaged.length ?? 0) +
-    (status?.conflicted.length ?? 0);
-  const hasStaged = (status?.staged.length ?? 0) > 0;
-  const hasUnstaged = (status?.unstaged.length ?? 0) > 0;
+    (status?.stagedCount ?? status?.staged.length ?? 0) +
+    (status?.unstagedCount ?? status?.unstaged.length ?? 0) +
+    (status?.conflictedCount ?? status?.conflicted.length ?? 0);
+  const stagedCount = status?.stagedCount ?? status?.staged.length ?? 0;
+  const unstagedCount = status?.unstagedCount ?? status?.unstaged.length ?? 0;
+  const conflictedCount = status?.conflictedCount ?? status?.conflicted.length ?? 0;
+  const stagedOmitted = status?.stagedOmitted ?? 0;
+  const unstagedOmitted = status?.unstagedOmitted ?? 0;
+  const conflictedOmitted = status?.conflictedOmitted ?? 0;
+  const hasStaged = stagedCount > 0;
+  const hasUnstaged = unstagedCount > 0;
+  const ahead = status?.ahead ?? 0;
+  const behind = status?.behind ?? 0;
 
   const fire = useCallback(
     async (
@@ -407,28 +435,20 @@ function ChangesPane({
   const commit = useCallback(async () => {
     if (busy) return;
     const trimmed = message.trim();
-    if (!trimmed) {
-      onAction('Commit message is empty.');
-      return;
-    }
+    if (!trimmed) { onAction('Commit message is empty.'); return; }
     if (!stageBeforeCommit && !hasStaged) {
       onAction('Nothing staged. Stage files first or enable "stage all".');
       return;
     }
     const api = window.electronAPI?.gitLocal;
-    if (!api) {
-      onAction('Tauri runtime not available');
-      return;
-    }
+    if (!api) { onAction('Tauri runtime not available'); return; }
     setBusy(true);
     try {
       const result = (await api.commit(entryId, {
         message: trimmed,
         stageAll: stageBeforeCommit,
       })) as { shortSha?: string };
-      const sha = result?.shortSha ?? '';
-      onAction(`Committed ${sha}`.trim());
-      setLastCommitSha(sha);
+      onAction(`Committed ${result?.shortSha ?? ''}`.trim());
       setMessage('');
       setStageBeforeCommit(false);
       refresh();
@@ -440,60 +460,104 @@ function ChangesPane({
   }, [busy, entryId, hasStaged, message, onAction, refresh, stageBeforeCommit]);
 
   const push = useCallback(async () => {
-    if (busy) return;
+    if (networkBusy) return;
     const api = window.electronAPI?.gitLocal;
-    if (!api) {
-      onAction('Tauri runtime not available');
-      return;
-    }
-    setBusy(true);
+    if (!api) { onAction('Tauri runtime not available'); return; }
+    setNetworkBusy(true);
+    setNetworkStatus('Pushing…');
     try {
       const result = await api.push(entryId);
       if (result?.success) {
-        setLastCommitSha(null);
-        onAction('Pushed to remote.');
+        setNetworkStatus(result.output || 'Pushed.');
+        onAction(result.output || 'Pushed to remote.');
         refresh();
       } else {
+        setNetworkStatus(null);
         onAction(result?.error || 'Push failed');
       }
     } catch (err) {
+      setNetworkStatus(null);
       onAction(err instanceof Error ? err.message : String(err));
     } finally {
-      setBusy(false);
+      setNetworkBusy(false);
     }
-  }, [busy, entryId, onAction, refresh]);
+  }, [networkBusy, entryId, onAction, refresh]);
+
+  const pull = useCallback(async () => {
+    if (networkBusy) return;
+    const api = window.electronAPI?.gitLocal;
+    if (!api) { onAction('Tauri runtime not available'); return; }
+    setNetworkBusy(true);
+    setNetworkStatus('Pulling…');
+    try {
+      const result = await api.pull(entryId);
+      if (result?.success) {
+        setNetworkStatus(result.output || 'Up to date.');
+        onAction(result.output || 'Pulled from remote.');
+        refresh();
+      } else {
+        setNetworkStatus(null);
+        onAction(result?.error || 'Pull failed');
+      }
+    } catch (err) {
+      setNetworkStatus(null);
+      onAction(err instanceof Error ? err.message : String(err));
+    } finally {
+      setNetworkBusy(false);
+    }
+  }, [networkBusy, entryId, onAction, refresh]);
+
+  const networkBar = (
+    <div className="gf-network-bar">
+      <button
+        type="button"
+        className="gf-mini-btn"
+        disabled={networkBusy || behind === 0}
+        onClick={pull}
+        title={behind > 0 ? `Pull ${behind} commit(s) from remote` : 'Nothing to pull'}
+      >
+        {networkBusy && networkStatus?.startsWith('Pull') ? '↓ Pulling…' : `↓ Pull${behind > 0 ? ` ${behind}` : ''}`}
+      </button>
+      <button
+        type="button"
+        className="gf-mini-btn primary"
+        disabled={networkBusy || ahead === 0}
+        onClick={push}
+        title={ahead > 0 ? `Push ${ahead} commit(s) to remote` : 'Nothing to push'}
+      >
+        {networkBusy && networkStatus?.startsWith('Push') ? '↑ Pushing…' : `↑ Push${ahead > 0 ? ` ${ahead}` : ''}`}
+      </button>
+      {networkBusy && (
+        <span className="gf-network-progress">
+          <span className="gf-spinner" /> {networkStatus}
+        </span>
+      )}
+      {!networkBusy && networkStatus && (
+        <span className="gf-network-done" onClick={() => setNetworkStatus(null)}>
+          {networkStatus} ✕
+        </span>
+      )}
+    </div>
+  );
 
   if (!status) return <div className="gf-pane-empty">Loading…</div>;
-  if (totalChanges === 0 && !lastCommitSha) {
+
+  if (totalChanges === 0) {
     return (
-      <div className="gf-changes-layout">
+      <div className="gf-changes-layout" style={{ '--changes-list-w': `${listW}px` } as never}>
         <div className="gf-changes-list">
           <div className="gf-pane-empty">Working tree clean.</div>
         </div>
+        <div className="gf-changes-h-resize" onMouseDown={startHResize} role="separator" />
         <div className="gf-diff-pane">
-          <div className="gf-commit-box">
-            <div className="gf-commit-actions">
-              {status && (status.ahead > 0) && (
-                <span className="gf-commit-hint">
-                  ↑ {status.ahead} unpushed commit{status.ahead > 1 ? 's' : ''}
-                </span>
-              )}
-              <button
-                type="button"
-                className="gf-mini-btn primary"
-                disabled={busy || !(status?.ahead > 0)}
-                onClick={push}
-              >
-                {busy ? 'Pushing…' : 'Push'}
-              </button>
-            </div>
-          </div>
+          {networkBar}
         </div>
       </div>
     );
   }
+
   return (
-    <div className="gf-changes-layout">
+    <div className="gf-changes-layout" style={{ '--changes-list-w': `${listW}px` } as never}>
       <div className="gf-changes-list">
         <div className="gf-changes-toolbar">
           <button
@@ -512,15 +576,15 @@ function ChangesPane({
               fire(
                 'unstage',
                 (status?.staged ?? []).map((c) => c.path),
-                'Unstaged all'
+                stagedOmitted > 0 ? 'Unstaged visible files' : 'Unstaged all'
               )
             }
           >
-            Unstage all
+            {stagedOmitted > 0 ? 'Unstage shown' : 'Unstage all'}
           </button>
         </div>
-        {status.conflicted.length > 0 && (
-          <Section title={`Conflicts (${status.conflicted.length})`} emphasis="danger">
+        {conflictedCount > 0 && (
+          <Section title={`Conflicts (${conflictedCount})`} emphasis="danger">
             {status.conflicted.map((c) => (
               <ChangeRow
                 key={`con-${c.path}`}
@@ -530,10 +594,15 @@ function ChangesPane({
                 onClick={() => onSelect(c)}
               />
             ))}
+            {conflictedOmitted > 0 && (
+              <div className="gf-pane-empty small">
+                {conflictedOmitted} more hidden to keep the list responsive.
+              </div>
+            )}
           </Section>
         )}
-        <Section title={`Staged (${status.staged.length})`}>
-          {status.staged.length === 0 && (
+        <Section title={`Staged (${stagedCount})`}>
+          {stagedCount === 0 && (
             <div className="gf-pane-empty small">Nothing staged.</div>
           )}
           {status.staged.map((c) => (
@@ -551,9 +620,14 @@ function ChangesPane({
               ]}
             />
           ))}
+          {stagedOmitted > 0 && (
+            <div className="gf-pane-empty small">
+              {stagedOmitted} more hidden to keep the list responsive.
+            </div>
+          )}
         </Section>
-        <Section title={`Unstaged (${status.unstaged.length})`}>
-          {status.unstaged.length === 0 && (
+        <Section title={`Unstaged (${unstagedCount})`}>
+          {unstagedCount === 0 && (
             <div className="gf-pane-empty small">No unstaged changes.</div>
           )}
           {status.unstaged.map((c) => (
@@ -581,8 +655,14 @@ function ChangesPane({
               ]}
             />
           ))}
+          {unstagedOmitted > 0 && (
+            <div className="gf-pane-empty small">
+              {unstagedOmitted} more hidden to keep the list responsive.
+            </div>
+          )}
         </Section>
       </div>
+      <div className="gf-changes-h-resize" onMouseDown={startHResize} role="separator" />
       <div className="gf-diff-pane">
         {!selected && <div className="gf-pane-empty">Select a file to see its diff.</div>}
         {selected && (
@@ -636,26 +716,16 @@ function ChangesPane({
               />
               Stage all before commit
             </label>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <button
-                type="button"
-                className="gf-mini-btn primary"
-                disabled={busy || !message.trim() || (!hasStaged && !stageBeforeCommit)}
-                onClick={commit}
-              >
-                Commit
-              </button>
-              <button
-                type="button"
-                className="gf-mini-btn"
-                disabled={busy || !(status?.ahead > 0)}
-                onClick={push}
-                title={status?.ahead > 0 ? `Push ${status.ahead} commit(s)` : 'Nothing to push'}
-              >
-                {busy ? 'Pushing…' : `Push${status?.ahead > 0 ? ` ↑${status.ahead}` : ''}`}
-              </button>
-            </div>
+            <button
+              type="button"
+              className="gf-mini-btn primary"
+              disabled={busy || !message.trim() || (!hasStaged && !stageBeforeCommit)}
+              onClick={commit}
+            >
+              Commit
+            </button>
           </div>
+          {networkBar}
         </div>
       </div>
     </div>

@@ -18,6 +18,9 @@ type Selection =
   | { kind: 'remote'; repo: GitHubRepoInfo }
   | { kind: 'local'; entry: LocalRepoEntry }
   | null;
+type RepoContextMenu =
+  | { kind: 'remote'; x: number; y: number; repo: GitHubRepoInfo }
+  | { kind: 'local'; x: number; y: number; entry: LocalRepoEntry };
 
 const CACHE_KEY = 'aim.repositories.page.v3';
 
@@ -77,7 +80,7 @@ export function Repositories() {
   const [message, setMessage] = useState<string | null>(null);
 
   const [installModalRepo, setInstallModalRepo] = useState<string | null>(null);
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; repo: GitHubRepoInfo } | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<RepoContextMenu | null>(null);
   const ctxMenuRef = useRef<HTMLDivElement>(null);
 
   const localState = useLocalRepoState(
@@ -170,6 +173,52 @@ export function Repositories() {
       }
     },
     [loadLocalRepos, selection]
+  );
+
+  const untrackIgnoredLocalRepo = useCallback(
+    async (entry: LocalRepoEntry) => {
+      const api = window.electronAPI?.gitLocal;
+      if (!api) return;
+      const confirmed = window.confirm(
+        t('repos.untrackIgnoredConfirm').replace('{name}', entry.name)
+      );
+      if (!confirmed) return;
+
+      const alreadySelected =
+        selection?.kind === 'local' && selection.entry.id === entry.id;
+
+      setBusy(true);
+      setError(null);
+      setMessage(null);
+      try {
+        const result = await api.untrackIgnored(entry.id);
+        setSelection({ kind: 'local', entry });
+        setLocalBottomTab('changes');
+        localState.setSelectedChange(null);
+        if (alreadySelected) {
+          localState.refresh();
+        }
+        const addedCount = result.addedIgnores?.length ?? 0;
+        if (result.removed > 0 && addedCount > 0) {
+          setMessage(
+            t('repos.untrackIgnoredDoneWithRules')
+              .replace('{count}', String(result.removed))
+              .replace('{rules}', String(addedCount))
+          );
+        } else if (result.removed > 0) {
+          setMessage(t('repos.untrackIgnoredDone').replace('{count}', String(result.removed)));
+        } else if (addedCount > 0) {
+          setMessage(t('repos.untrackIgnoredRulesAdded').replace('{rules}', String(addedCount)));
+        } else {
+          setMessage(t('repos.untrackIgnoredNone'));
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to untrack ignored files');
+      } finally {
+        setBusy(false);
+      }
+    },
+    [localState, selection, t]
   );
 
   // ---- Load repos ----
@@ -311,7 +360,7 @@ export function Repositories() {
     setSelection({ kind: 'remote', repo });
   };
 
-  const [bottomH, setBottomH] = useState(240);
+  const [bottomH, setBottomH] = useState(320);
   const appRef = useRef<HTMLDivElement>(null);
 
   const startResize = (e: React.MouseEvent) => {
@@ -320,7 +369,7 @@ export function Repositories() {
     const startH = bottomH;
     const onMove = (mv: MouseEvent) => {
       const delta = startY - mv.clientY;
-      setBottomH(Math.max(120, Math.min(600, startH + delta)));
+      setBottomH(Math.max(120, Math.min(700, startH + delta)));
     };
     const onUp = () => {
       document.removeEventListener('mousemove', onMove);
@@ -440,6 +489,11 @@ export function Repositories() {
                       selectedLocal?.id === entry.id ? ' active' : ''
                     }`}
                     onClick={() => setSelection({ kind: 'local', entry })}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setSelection({ kind: 'local', entry });
+                      setCtxMenu({ kind: 'local', x: e.clientX, y: e.clientY, entry });
+                    }}
                     title={entry.path}
                   >
                     <span className="gf-repo-icon">📁</span>
@@ -495,7 +549,7 @@ export function Repositories() {
                       onClick={() => setSelection({ kind: 'remote', repo })}
                       onContextMenu={(e) => {
                         e.preventDefault();
-                        setCtxMenu({ x: e.clientX, y: e.clientY, repo });
+                        setCtxMenu({ kind: 'remote', x: e.clientX, y: e.clientY, repo });
                       }}
                       title={repo.description || repo.fullName}
                     >
@@ -772,66 +826,113 @@ export function Repositories() {
         <div className="gf-toast">Loading accounts…</div>
       )}
 
-      {/* Context menu for remote repo items */}
+      {/* Context menu for repository items */}
       {ctxMenu && (
         <div
           ref={ctxMenuRef}
           className="gf-ctx-menu"
           style={{ left: ctxMenu.x, top: ctxMenu.y }}
         >
-          <button
-            type="button"
-            className="gf-ctx-menu-item"
-            onClick={() => {
-              setSelection({ kind: 'remote', repo: ctxMenu.repo });
-              setCtxMenu(null);
-            }}
-          >
-            {t('repoInstall.ctxSelect')}
-          </button>
-          <button
-            type="button"
-            className="gf-ctx-menu-item"
-            onClick={() => {
-              setInstallModalRepo(ctxMenu.repo.fullName);
-              setCtxMenu(null);
-            }}
-          >
-            {t('repoInstall.ctxInstallTools')}
-          </button>
-          <div className="gf-ctx-menu-sep" />
-          <button
-            type="button"
-            className="gf-ctx-menu-item"
-            onClick={() => {
-              setSelection({ kind: 'remote', repo: ctxMenu.repo });
-              setDialog('fork');
-              setCtxMenu(null);
-            }}
-          >
-            {t('repoInstall.ctxFork')}
-          </button>
-          <button
-            type="button"
-            className="gf-ctx-menu-item"
-            onClick={() => {
-              setSelection({ kind: 'remote', repo: ctxMenu.repo });
-              setDialog('clone');
-              setCtxMenu(null);
-            }}
-          >
-            {t('repoInstall.ctxClone')}
-          </button>
-          <button
-            type="button"
-            className="gf-ctx-menu-item"
-            onClick={() => {
-              window.open(ctxMenu.repo.htmlUrl, '_blank', 'noopener,noreferrer');
-              setCtxMenu(null);
-            }}
-          >
-            {t('repoInstall.ctxOpenGitHub')}
-          </button>
+          {ctxMenu.kind === 'local' ? (
+            <>
+              <button
+                type="button"
+                className="gf-ctx-menu-item"
+                onClick={() => {
+                  setSelection({ kind: 'local', entry: ctxMenu.entry });
+                  setCtxMenu(null);
+                }}
+              >
+                {t('repoInstall.ctxSelect')}
+              </button>
+              <button
+                type="button"
+                className="gf-ctx-menu-item"
+                disabled={busy}
+                onClick={() => {
+                  const entry = ctxMenu.entry;
+                  setCtxMenu(null);
+                  untrackIgnoredLocalRepo(entry);
+                }}
+              >
+                {t('repos.untrackIgnored')}
+              </button>
+              <div className="gf-ctx-menu-sep" />
+              <button
+                type="button"
+                className="gf-ctx-menu-item"
+                onClick={() => {
+                  const { entry } = ctxMenu;
+                  setCtxMenu(null);
+                  if (
+                    window.confirm(
+                      t('repos.removeConfirm').replace('{name}', entry.name)
+                    )
+                  ) {
+                    removeLocalRepo(entry.id);
+                  }
+                }}
+              >
+                {t('repos.removeTitle')}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="gf-ctx-menu-item"
+                onClick={() => {
+                  setSelection({ kind: 'remote', repo: ctxMenu.repo });
+                  setCtxMenu(null);
+                }}
+              >
+                {t('repoInstall.ctxSelect')}
+              </button>
+              <button
+                type="button"
+                className="gf-ctx-menu-item"
+                onClick={() => {
+                  setInstallModalRepo(ctxMenu.repo.fullName);
+                  setCtxMenu(null);
+                }}
+              >
+                {t('repoInstall.ctxInstallTools')}
+              </button>
+              <div className="gf-ctx-menu-sep" />
+              <button
+                type="button"
+                className="gf-ctx-menu-item"
+                onClick={() => {
+                  setSelection({ kind: 'remote', repo: ctxMenu.repo });
+                  setDialog('fork');
+                  setCtxMenu(null);
+                }}
+              >
+                {t('repoInstall.ctxFork')}
+              </button>
+              <button
+                type="button"
+                className="gf-ctx-menu-item"
+                onClick={() => {
+                  setSelection({ kind: 'remote', repo: ctxMenu.repo });
+                  setDialog('clone');
+                  setCtxMenu(null);
+                }}
+              >
+                {t('repoInstall.ctxClone')}
+              </button>
+              <button
+                type="button"
+                className="gf-ctx-menu-item"
+                onClick={() => {
+                  window.open(ctxMenu.repo.htmlUrl, '_blank', 'noopener,noreferrer');
+                  setCtxMenu(null);
+                }}
+              >
+                {t('repoInstall.ctxOpenGitHub')}
+              </button>
+            </>
+          )}
         </div>
       )}
 

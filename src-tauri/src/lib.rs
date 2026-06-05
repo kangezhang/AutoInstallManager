@@ -10,16 +10,16 @@
 //! - `scanner`: detect already-installed tools
 //! - `dialogs`: native folder/file pickers
 
-pub mod error;
-pub mod platform;
-pub mod paths;
 pub mod accounts;
 pub mod catalog;
+pub mod commands;
+pub mod error;
 pub mod git_local;
 pub mod github;
 pub mod installer;
+pub mod paths;
+pub mod platform;
 pub mod scanner;
-pub mod commands;
 
 use commands::*;
 use std::sync::Arc;
@@ -38,8 +38,7 @@ pub struct AppState {
 pub fn run() {
     tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info".into()),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
         .init();
 
@@ -112,10 +111,12 @@ pub fn run() {
             git_local_diff,
             git_local_stage,
             git_local_stage_all,
+            git_local_untrack_ignored,
             git_local_unstage,
             git_local_discard,
             git_local_commit,
             git_local_push,
+            git_local_pull,
         ])
         .setup(|app| {
             let state: tauri::State<AppState> = app.state();
