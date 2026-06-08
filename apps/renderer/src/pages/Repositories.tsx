@@ -553,8 +553,11 @@ export function Repositories() {
                       }}
                       title={repo.description || repo.fullName}
                     >
-                      <span className={`gf-repo-icon${repo.private ? ' private' : ''}`}>
-                        {repo.private ? '🔒' : '◇'}
+                      <span
+                        className={`gf-repo-icon${repo.private ? ' private' : ''}`}
+                        title={repo.private ? 'Private repository' : 'Public repository'}
+                      >
+                        {repo.private ? '⊘' : '⊙'}
                       </span>
                       <span className="gf-tree-item-name">{repo.name}</span>
                     </li>
@@ -578,8 +581,11 @@ export function Repositories() {
               {selectedRepo ? (
                 <>
                   <div className="gf-main-title">
-                    <span className={`gf-repo-icon${selectedRepo.private ? ' private' : ''}`}>
-                      {selectedRepo.private ? '🔒' : '◇'}
+                    <span
+                      className={`gf-repo-icon${selectedRepo.private ? ' private' : ''}`}
+                      title={selectedRepo.private ? 'Private repository' : 'Public repository'}
+                    >
+                      {selectedRepo.private ? '⊘' : '⊙'}
                     </span>
                     <strong>{selectedRepo.fullName}</strong>
                     {selectedRepo.defaultBranch && (
@@ -794,9 +800,18 @@ export function Repositories() {
         <PushDialog
           accountId={selectedAccountId}
           onClose={closeDialog}
-          onDone={async (repo, msg) => {
+          onDone={async (repo, folderPath, msg) => {
             setMessage(msg);
             closeDialog();
+            // Register the local folder in the git_local registry
+            if (folderPath && window.electronAPI?.gitLocal) {
+              try {
+                await window.electronAPI.gitLocal.addPath(folderPath);
+              } catch (_) {
+                // non-fatal — folder just won't appear in local list
+              }
+              await loadLocalRepos();
+            }
             await loadRepos();
             setSelection({ kind: 'remote', repo });
           }}
@@ -1472,7 +1487,7 @@ function PushDialog({
 }: {
   accountId: string;
   onClose: () => void;
-  onDone: (repo: GitHubRepoInfo, msg: string) => void;
+  onDone: (repo: GitHubRepoInfo, folderPath: string, msg: string) => void;
   setError: (msg: string | null) => void;
   busy: boolean;
   setBusy: (v: boolean) => void;
@@ -1512,13 +1527,16 @@ function PushDialog({
         accountId: accountId || undefined,
       });
       if (result.success && result.repo) {
-        onDone(result.repo, `Pushed ${result.repo.fullName}`);
+        onDone(result.repo, result.folderPath ?? folder, `Pushed ${result.repo.fullName}`);
       } else {
         if (result.output) setOutput(result.output);
         setError(result.error || 'Failed to push folder');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to push folder');
+      const msg = err instanceof Error
+        ? err.message
+        : (err as { message?: string })?.message ?? String(err);
+      setError(msg || 'Failed to push folder');
     } finally {
       setBusy(false);
     }

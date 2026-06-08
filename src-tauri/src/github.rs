@@ -1759,32 +1759,60 @@ pub async fn create_repo_from_folder(
                 )
                 .map_err(|e| e.to_string())?;
 
-            // Rename HEAD if branch isn't 'main'
-            let current_branch = repo
+            drop(tree);
+            drop(index);
+
+            // Read the actual branch name git created (depends on init.defaultBranch config)
+            let actual_branch = repo
                 .head()
                 .ok()
-                .and_then(|r| r.shorthand().map(|s| s.to_string()));
-            if current_branch.as_deref() != Some(branch_c.as_str()) {
-                repo.set_head(&format!("refs/heads/{}", branch_c))
-                    .map_err(|e| e.to_string())?;
+                .and_then(|r| r.shorthand().map(|s| s.to_string()))
+                .unwrap_or_else(|| "master".to_string());
+
+            // Add remote (or update if it already exists)
+            if repo.find_remote("origin").is_ok() {
+                repo.remote_set_url("origin", &push_url).map_err(|e| e.to_string())?;
+            } else {
+                repo.remote("origin", &push_url).map_err(|e| e.to_string())?;
             }
 
-            let mut remote = repo
-                .remote("origin", &push_url)
-                .or_else(|_| repo.find_remote("origin"))
-                .map_err(|e| e.to_string())?;
+            let workdir = repo.workdir()
+                .ok_or_else(|| "no workdir".to_string())?
+                .to_path_buf();
+            drop(repo);
 
-            let mut callbacks = git2::RemoteCallbacks::new();
-            let token_owned = token_for_push.clone();
-            callbacks.credentials(move |_url, _user, _allowed| {
-                git2::Cred::userpass_plaintext("x-access-token", &token_owned)
-            });
-            let mut push_opts = git2::PushOptions::new();
-            push_opts.remote_callbacks(callbacks);
-            let refspec = format!("refs/heads/{}:refs/heads/{}", branch_c, branch_c);
-            remote
-                .push(&[refspec.as_str()], Some(&mut push_opts))
-                .map_err(|e| e.to_string())?;
+            // If the user requested a different branch name, rename via system git
+            if actual_branch != branch_c {
+                let rename = std::process::Command::new("git")
+                    .current_dir(&workdir)
+                    .args(["branch", "-M", &actual_branch, &branch_c])
+                    .output()
+                    .map_err(|e| format!("failed to rename branch: {}", e))?;
+                if !rename.status.success() {
+                    let msg = String::from_utf8_lossy(&rename.stderr).to_string();
+                    return Err(format!("branch rename failed: {}", msg.trim()));
+                }
+            }
+
+            // Push with token embedded in the HTTPS URL
+            let auth_url = push_url
+                .replacen("https://", &format!("https://x-access-token:{}@", token_for_push), 1);
+
+            let out = std::process::Command::new("git")
+                .current_dir(&workdir)
+                .env("GIT_TERMINAL_PROMPT", "0")
+                .args(["push", "--set-upstream", &auth_url, &branch_c])
+                .output()
+                .map_err(|e| format!("failed to run git: {}", e))?;
+
+            if !out.status.success() {
+                let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+                let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+                let combined = format!("{}\n{}", stdout, stderr)
+                    .replace(&token_for_push, "***");
+                return Err(combined.trim().to_string());
+            }
+
             Ok(commit_oid.to_string())
         })
         .await
