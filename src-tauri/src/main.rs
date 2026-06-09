@@ -1,5 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    aim_lib::run();
+    dev_stack_manager_lib::run();
 }

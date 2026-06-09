@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { InstallTask } from '@aim/shared';
+import type { InstallTask } from '@devstack/shared';
 import { useInstallerStore } from '../store';
 import { useI18n } from '../i18n';
 import { IconButton } from '../components/ui/IconButton';

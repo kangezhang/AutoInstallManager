@@ -1,0 +1,29 @@
+schemaVersion: "1.0.0"
+id: "dbeaver"
+name: "DBeaver Community"
+description: "Universal database client for development and administration"
+homepage: "https://dbeaver.io"
+tags:
+  - database
+  - client
+  - sql
+
+versionSource:
+  type: githubReleases
+  repo: dbeaver/dbeaver
+
+assets:
+  - platform: win
+    arch: x64
+    url: "https://github.com/dbeaver/dbeaver/releases/download/{version}/dbeaver-ce-{version}-x86_64-setup.exe"
+    type: exe
+
+install:
+  type: exe
+  requiresAdmin: true
+  silentArgs: "/S"
+  targetDir: "{PROGRAMFILES}/DBeaver"
+
+validate:
+  command: "if exist \"{PROGRAMFILES}\\DBeaver\\dbeaver.exe\" echo {version}"
+  parse: exact

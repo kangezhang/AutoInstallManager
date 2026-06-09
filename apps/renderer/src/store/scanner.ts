@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { ScanReport } from '@aim/shared';
+import type { ScanReport } from '@devstack/shared';
 import { rendererStorage } from './persist-storage';
 
 interface ScannerState {
@@ -71,7 +71,7 @@ export const useScannerStore = create<ScannerState>()(
       },
     }),
     {
-      name: 'aim.scanner.store.v1',
+      name: 'devstack.scanner.store.v1',
       storage: rendererStorage,
       partialize: (state) => ({
         report: state.report,

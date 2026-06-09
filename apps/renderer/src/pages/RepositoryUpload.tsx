@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+﻿import { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type {
   GitHubAccountSummary,
   GitHubRepoUpsertFileRequest,
   ReleaseUploadRequest,
   ReleaseUploadResult,
-} from '@aim/shared';
+} from '@devstack/shared';
 import { useCatalogStore } from '../store';
 import { useI18n } from '../i18n';
 import { IconButton } from '../components/ui/IconButton';

@@ -1,6 +1,6 @@
 # GitHub Release 发布与大文件上传完整流程
 
-本文面向“自己开发的软件”发布场景，重点解决“安装包超过 100MB 无法上传”的问题，并给出和 AutoInstallManager 集成的标准做法。
+本文面向“自己开发的软件”发布场景，重点解决“安装包超过 100MB 无法上传”的问题，并给出和 DevStack Manager 集成的标准做法。
 
 ## 1. 先搞清楚 3 个大小限制
 
@@ -25,7 +25,7 @@
 2. Release 文件名固定模式，包含版本和平台。
 3. 每次发布同一版本只对应一个 tag，避免“同名 tag 反复改内容”。
 
-AutoInstallManager 当前的 GitHub 版本解析基于 semver，tag 最好保持标准格式。
+DevStack Manager 当前的 GitHub 版本解析基于 semver，tag 最好保持标准格式。
 
 ## 4. 手工发布（本地命令，最稳）
 
@@ -123,7 +123,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-## 6. 在 AutoInstallManager 里接入你的软件
+## 6. 在 DevStack Manager 里接入你的软件
 
 在 `catalog/` 新建一个 yaml，例如 `catalog/myapp.yaml`：
 
@@ -176,7 +176,7 @@ pnpm -r build
    - 先用 `gh release view <tag>` 看 release 是否存在。
    - 同名文件已存在时，用 `--clobber` 或先删除旧资产再传。
 
-3. AutoInstallManager 看不到你新版本
+3. DevStack Manager 看不到你新版本
    - 确认 release 已发布（不是 draft）。
    - 确认 tag 是 semver（如 `v1.2.3`）。
    - 确认 `assets.url` 模板和真实文件名一致。

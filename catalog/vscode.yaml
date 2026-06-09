@@ -1,0 +1,37 @@
+schemaVersion: "1.0.0"
+id: "vscode"
+name: "Visual Studio Code"
+description: "Lightweight code editor with extension support"
+homepage: "https://code.visualstudio.com"
+tags:
+  - editor
+  - ide
+  - development
+
+versionSource:
+  type: githubReleases
+  repo: microsoft/vscode
+
+assets:
+  - platform: win
+    arch: x64
+    url: "https://update.code.visualstudio.com/{version}/win32-x64-archive/stable"
+    type: zip
+
+  - platform: win
+    arch: arm64
+    url: "https://update.code.visualstudio.com/{version}/win32-arm64-archive/stable"
+    type: zip
+
+install:
+  type: archive
+  requiresAdmin: false
+  targetDir: "{managed}/vscode/{version}"
+  postInstall:
+    - type: addToPath
+      value: "{targetDir}/bin"
+
+validate:
+  command: "\"{targetDir}\\Code.exe\" --version"
+  parse: regex
+  pattern: "([\\d]+\\.[\\d]+\\.[\\d]+)"

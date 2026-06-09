@@ -1,4 +1,4 @@
-# AutoInstallManager
+# DevStack Manager
 
 环境及软件自动管理安装工具，桌面端基于 Tauri 2 + Rust，前端基于 React + TypeScript + Vite。
 
@@ -22,7 +22,7 @@
 ## 项目结构
 
 ```text
-AutoInstallManager/
+DevStack Manager/
 ├─ apps/
 │  └─ renderer/        # React + Vite 渲染进程
 ├─ packages/
@@ -75,7 +75,7 @@ pnpm renderer:build
 pnpm shared:build
 
 # 监听构建共享包
-pnpm --filter @aim/shared dev
+pnpm --filter @devstack/shared dev
 ```
 
 Tauri 开发模式默认使用：
@@ -109,7 +109,7 @@ cargo build --no-default-features
 ```bash
 # 构建当前平台安装包
 # 会自动执行 tauri.conf.json 里的 beforeBuildCommand：
-# pnpm --filter @aim/renderer build
+# pnpm --filter @devstack/renderer build
 pnpm build
 
 # 等价写法
@@ -164,7 +164,7 @@ pnpm tauri icon icon_installer.ico
 
 ### Windows 运行时报 `请求的操作需要提升。 (os error 740)`
 
-Windows 会对带有 `install`、`setup`、`manager` 等关键词的 exe 名称做安装器启发式检测。如果 manifest 没有明确声明权限级别，`auto-install-manager.exe` 可能会被要求提权。
+Windows 会对带有 `install`、`setup`、`manager` 等关键词的 exe 名称做安装器启发式检测。如果 manifest 没有明确声明权限级别，`dev-stack-manager.exe` 可能会被要求提权。
 
 当前项目通过 `src-tauri/windows-app-manifest.xml` 声明：
 

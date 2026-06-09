@@ -6,7 +6,7 @@
 
 ## 背景
 
-AutoInstallManager 是一个复杂的 Electron 应用，包含主进程、渲染进程、核心业务逻辑、平台适配器等多个模块。需要一个清晰的代码组织结构来：
+DevStack Manager 是一个复杂的 Electron 应用，包含主进程、渲染进程、核心业务逻辑、平台适配器等多个模块。需要一个清晰的代码组织结构来：
 
 1. 分离关注点（UI、业务逻辑、平台适配）
 2. 支持代码复用和模块化
@@ -20,7 +20,7 @@ AutoInstallManager 是一个复杂的 Electron 应用，包含主进程、渲染
 ### 目录结构
 
 ```
-AutoInstallManager/
+DevStack Manager/
 ├── apps/
 │   ├── main/          # Electron 主进程
 │   └── renderer/      # Electron 渲染进程（UI）
@@ -35,22 +35,22 @@ AutoInstallManager/
 1. **apps/renderer**
    - 只能通过 IPC 调用能力
    - 不直接执行系统命令
-   - 依赖：`@aim/shared`
+   - 依赖：`@devstack/shared`
 
 2. **apps/main**
    - 负责 IPC 处理和任务调度
-   - 依赖：`@aim/core`, `@aim/adapters`, `@aim/shared`
+   - 依赖：`@devstack/core`, `@devstack/adapters`, `@devstack/shared`
 
 3. **packages/core**
    - 纯业务核心逻辑
    - 不依赖 Electron/Node GUI API
    - 保证可单测与可迁移
-   - 依赖：`@aim/shared`
+   - 依赖：`@devstack/shared`
 
 4. **packages/adapters**
    - 只实现平台能力差异
    - 不写业务规则
-   - 依赖：`@aim/shared`
+   - 依赖：`@devstack/shared`
 
 5. **packages/shared**
    - 类型定义、常量、错误码、IPC 协议

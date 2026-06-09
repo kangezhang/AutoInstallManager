@@ -34,6 +34,7 @@ export function Sidebar() {
         { to: '/dashboard', label: t('sidebar.dashboard'), icon: 'home' },
         { to: '/catalog', label: t('sidebar.catalog'), icon: 'box' },
         { to: '/tasks', label: t('sidebar.tasks') || 'Tasks', icon: 'list' },
+        { to: '/todos', label: t('sidebar.todos'), icon: 'check' },
       ],
     },
     {
@@ -58,9 +59,9 @@ export function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar-header">
         <div className="sidebar-brand">
-          <span className="sidebar-brand-mark">A</span>
+          <span className="sidebar-brand-mark">D</span>
           <div>
-            <div className="sidebar-brand-name">AutoInstall</div>
+            <div className="sidebar-brand-name">DevStack</div>
             <div className="sidebar-brand-tag">Manager</div>
           </div>
         </div>

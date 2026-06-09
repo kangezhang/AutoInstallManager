@@ -1,5 +1,5 @@
 //! Thin HTTP wrappers over the GitHub REST API. We intentionally keep this
-//! procedural — most calls are one-off and the existing TypeScript already
+//! procedural 鈥?most calls are one-off and the existing TypeScript already
 //! proved the contract.
 
 use crate::accounts;
@@ -21,7 +21,7 @@ static HTTP: OnceLock<Client> = OnceLock::new();
 pub fn http() -> &'static Client {
     HTTP.get_or_init(|| {
         Client::builder()
-            .user_agent("AutoInstallManager")
+            .user_agent("DevStack Manager")
             .timeout(Duration::from_secs(120))
             .build()
             .expect("build reqwest client")
@@ -34,7 +34,7 @@ fn json_headers(token: Option<&str>) -> HeaderMap {
         HeaderName::from_static("accept"),
         HeaderValue::from_static("application/vnd.github+json"),
     );
-    headers.insert(USER_AGENT, HeaderValue::from_static("AutoInstallManager"));
+    headers.insert(USER_AGENT, HeaderValue::from_static("DevStack Manager"));
     headers.insert(
         HeaderName::from_static("x-github-api-version"),
         HeaderValue::from_static("2022-11-28"),
@@ -606,7 +606,7 @@ pub async fn clone_repo(payload: CloneRequest) -> GitOperationResult {
     let branch = payload.branch.clone().filter(|s| !s.trim().is_empty());
     let depth = payload.depth;
 
-    // git2 is sync — wrap on a blocking thread.
+    // git2 is sync 鈥?wrap on a blocking thread.
     let result = tokio::task::spawn_blocking(move || -> Result<String, String> {
         let mut callbacks = git2::RemoteCallbacks::new();
         if let Some(t) = token.as_ref() {
@@ -1606,7 +1606,7 @@ pub struct RepoCreateFromFolderResult {
 }
 
 const DEFAULT_GITIGNORE: &[&str] = &[
-    "# AutoInstallManager default ignores",
+    "# DevStack Manager default ignores",
     "node_modules/",
     "vendor/",
     "dist/",
@@ -1707,11 +1707,11 @@ pub async fn create_repo_from_folder(
         let user_name = credential
             .as_ref()
             .map(|c| c.username.clone())
-            .unwrap_or_else(|| "AutoInstallManager".to_string());
+            .unwrap_or_else(|| "DevStack Manager".to_string());
         let user_email = credential
             .as_ref()
             .map(|c| format!("{}@users.noreply.github.com", c.username))
-            .unwrap_or_else(|| "autoinstallmanager@users.noreply.github.com".to_string());
+            .unwrap_or_else(|| "devstack-manager@users.noreply.github.com".to_string());
 
         // Create remote first so we can push to it.
         let created = create_repo(RepoCreateRequest {
@@ -1855,7 +1855,7 @@ pub async fn create_repo_from_folder(
     }
 }
 
-// urlencoding crate alternative — keep things small.
+// urlencoding crate alternative 鈥?keep things small.
 mod urlencoding {
     pub fn encode(s: &str) -> std::borrow::Cow<'_, str> {
         let needs = s

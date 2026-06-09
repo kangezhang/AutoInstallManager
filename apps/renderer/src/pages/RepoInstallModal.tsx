@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { ReleaseDiscoverResult, ToolDefinition } from '@aim/shared';
+import type { ReleaseDiscoverResult, ToolDefinition } from '@devstack/shared';
 import { useCatalogStore, useInstallerStore } from '../store';
 import { IconButton } from '../components/ui/IconButton';
 import { useI18n } from '../i18n';

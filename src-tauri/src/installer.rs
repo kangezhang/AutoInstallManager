@@ -396,7 +396,11 @@ impl Installer {
             options.target_dir.as_deref(),
         );
         self.update_task(task_id, "pending", "Preparing target directory...", 10.0);
-        let backup_path = prepare_target_dir(&target_dir, options.force.unwrap_or(false))?;
+        let backup_path = if tool.install.install_type == "archive" {
+            prepare_target_dir(&target_dir, options.force.unwrap_or(false))?
+        } else {
+            None
+        };
 
         self.update_task(task_id, "downloading", "Downloading...", 12.0);
         let download_url = render_template(
@@ -405,9 +409,9 @@ impl Installer {
             target_version.tag.as_deref(),
         );
         let token = resolve_tool_token(&tool).await?;
-        let temp = std::env::temp_dir().join("autoinstall").join(task_id);
+        let temp = std::env::temp_dir().join("devstack-manager").join(task_id);
         fs::create_dir_all(&temp)?;
-        let file_name = file_name_from_url(&download_url, &asset.url);
+        let file_name = file_name_from_url(&download_url, &asset.url, &asset.asset_type);
         let download_path = temp.join(&file_name);
 
         let me = self.clone();
@@ -444,7 +448,9 @@ impl Installer {
         .await?;
 
         self.update_task(task_id, "installing", "Installing...", 75.0);
-        let installed_path = perform_install(&asset, &download_path, &target_dir).await?;
+        let installed_path = perform_install(&tool, &asset, &download_path, &target_dir).await?;
+        self.update_task(task_id, "installing", "Applying post-install actions...", 84.0);
+        run_post_install(&tool, &target_version.version, &installed_path).await?;
         self.update_task(task_id, "installing", "Validating installation...", 90.0);
         validate_install(&tool, &target_version.version, &installed_path).await?;
 
@@ -757,7 +763,7 @@ fn build_rollback_snapshot(
     }
 }
 
-fn file_name_from_url(resolved: &str, original: &str) -> String {
+fn file_name_from_url(resolved: &str, original: &str, asset_type: &str) -> String {
     fn from(url: &str) -> Option<String> {
         let parsed = url::Url::parse(url).ok()?;
         parsed
@@ -765,9 +771,24 @@ fn file_name_from_url(resolved: &str, original: &str) -> String {
             .and_then(|mut s| s.next_back().map(str::to_string))
             .filter(|s| !s.is_empty())
     }
-    from(original)
+    let mut name = from(original)
         .or_else(|| from(resolved))
-        .unwrap_or_else(|| "download".into())
+        .unwrap_or_else(|| "download".into());
+    let expected_suffix = match asset_type {
+        "tar.gz" => ".tar.gz",
+        "zip" => ".zip",
+        "msi" => ".msi",
+        "exe" => ".exe",
+        "pkg" => ".pkg",
+        "dmg" => ".dmg",
+        _ => "",
+    };
+    if !expected_suffix.is_empty()
+        && !name.to_ascii_lowercase().ends_with(&expected_suffix.to_ascii_lowercase())
+    {
+        name.push_str(expected_suffix);
+    }
+    name
 }
 
 async fn download_with_progress<F>(
@@ -824,26 +845,121 @@ where
     Ok(())
 }
 
-async fn perform_install(asset: &Asset, package: &Path, target: &Path) -> AppResult<PathBuf> {
-    fs::create_dir_all(target)?;
-    match asset.asset_type.as_str() {
-        "zip" => extract_zip(package, target)?,
-        "tar.gz" => extract_tar_gz(package, target)?,
-        "msi" | "exe" | "pkg" | "dmg" => {
+async fn perform_install(
+    tool: &ToolDefinition,
+    asset: &Asset,
+    package: &Path,
+    target: &Path,
+) -> AppResult<PathBuf> {
+    match tool.install.install_type.as_str() {
+        "archive" => {
+            fs::create_dir_all(target)?;
+            match asset.asset_type.as_str() {
+                "zip" => extract_zip(package, target)?,
+                "tar.gz" => extract_tar_gz(package, target)?,
+                other => {
+                    return Err(AppError::Install(format!(
+                        "Archive install does not support asset type: {}",
+                        other
+                    )));
+                }
+            }
+        }
+        "msi" => {
+            let silent_args = tool
+                .install
+                .silent_args
+                .as_deref()
+                .map(|args| render_install_template(args, target));
+            install_msi(package, silent_args.as_deref()).await?
+        }
+        "exe" => {
+            let silent_args = tool
+                .install
+                .silent_args
+                .as_deref()
+                .map(|args| render_install_template(args, target));
+            install_exe(package, silent_args.as_deref()).await?
+        }
+        "pkg" | "dmg" => {
             return Err(AppError::Install(format!(
-                "Installer type '{}' is not yet implemented in the Tauri build. \
-                 Use an archive (zip/tar.gz) for now or run the legacy Electron build.",
-                asset.asset_type
+                "Installer type '{}' is not yet implemented on this platform.",
+                tool.install.install_type
             )));
         }
         other => {
             return Err(AppError::Install(format!(
-                "Unsupported asset type: {}",
+                "Unsupported install type: {}",
                 other
             )));
         }
     }
     Ok(target.to_path_buf())
+}
+
+async fn install_msi(package: &Path, silent_args: Option<&str>) -> AppResult<()> {
+    if !cfg!(target_os = "windows") {
+        return Err(AppError::Install("MSI install is only supported on Windows".into()));
+    }
+
+    let args = split_command_line(silent_args.unwrap_or("/qn /norestart"))?;
+    let mut command = tokio::process::Command::new("msiexec");
+    command.arg("/i").arg(package);
+    command.args(args);
+    run_command_checked(command, "msi installer").await
+}
+
+async fn install_exe(package: &Path, silent_args: Option<&str>) -> AppResult<()> {
+    let args = split_command_line(silent_args.unwrap_or(""))?;
+    let mut command = tokio::process::Command::new(package);
+    command.args(args);
+    run_command_checked(command, "exe installer").await
+}
+
+async fn run_command_checked(
+    mut command: tokio::process::Command,
+    label: &str,
+) -> AppResult<()> {
+    let output = command
+        .output()
+        .await
+        .map_err(|e| AppError::Install(format!("Failed to run {}: {}", label, e)))?;
+    if output.status.success() {
+        return Ok(());
+    }
+    Err(AppError::Install(format!(
+        "{} failed with exit code {:?}: {}{}",
+        label,
+        output.status.code(),
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    )))
+}
+
+fn split_command_line(input: &str) -> AppResult<Vec<String>> {
+    let mut args = Vec::new();
+    let mut current = String::new();
+    let mut in_quotes = false;
+
+    for ch in input.chars() {
+        match ch {
+            '"' => in_quotes = !in_quotes,
+            c if c.is_whitespace() && !in_quotes => {
+                if !current.is_empty() {
+                    args.push(std::mem::take(&mut current));
+                }
+            }
+            c => current.push(c),
+        }
+    }
+
+    if in_quotes {
+        return Err(AppError::Install("Unclosed quote in silentArgs".into()));
+    }
+    if !current.is_empty() {
+        args.push(current);
+    }
+    Ok(args)
 }
 
 fn extract_zip(src: &Path, dest: &Path) -> AppResult<()> {
@@ -888,6 +1004,182 @@ fn extract_tar_gz(src: &Path, dest: &Path) -> AppResult<()> {
     Ok(())
 }
 
+async fn run_post_install(
+    tool: &ToolDefinition,
+    expected_version: &str,
+    installed_path: &Path,
+) -> AppResult<()> {
+    let Some(actions) = tool.install.post_install.as_ref() else {
+        return Ok(());
+    };
+
+    for action in actions {
+        let value = action
+            .value
+            .as_deref()
+            .unwrap_or("")
+            .replace("{version}", expected_version);
+        let rendered = render_install_template(&value, installed_path);
+
+        match action.action_type.as_str() {
+            "addToPath" => {
+                if rendered.trim().is_empty() {
+                    return Err(AppError::Install("addToPath requires a value".into()));
+                }
+                add_to_path(&rendered)?;
+            }
+            "runCommand" => {
+                if rendered.trim().is_empty() {
+                    return Err(AppError::Install("runCommand requires a value".into()));
+                }
+                run_shell(&rendered).await?;
+            }
+            "createShim" => {
+                create_shim(&rendered)?;
+            }
+            other => {
+                return Err(AppError::Install(format!(
+                    "Unsupported postInstall action: {}",
+                    other
+                )));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn render_install_template(template: &str, installed_path: &Path) -> String {
+    let info = platform::detect();
+    let installed = installed_path.to_string_lossy();
+    template
+        .replace("{installedPath}", &installed)
+        .replace("{targetDir}", &installed)
+        .replace("{managed}", &info.paths.managed)
+        .replace("{appData}", &info.paths.app_data)
+        .replace("{home}", &info.paths.home)
+        .replace("{temp}", &info.paths.temp)
+        .replace(
+            "{LOCALAPPDATA}",
+            &dirs::data_local_dir()
+                .unwrap_or_else(|| std::env::temp_dir())
+                .to_string_lossy(),
+        )
+        .replace(
+            "{APPDATA}",
+            &dirs::config_dir()
+                .unwrap_or_else(|| std::env::temp_dir())
+                .to_string_lossy(),
+        )
+        .replace(
+            "{PROGRAMFILES}",
+            &std::env::var("ProgramFiles").unwrap_or_else(|_| "C:\\Program Files".into()),
+        )
+        .replace(
+            "{PROGRAMFILES_X86}",
+            &std::env::var("ProgramFiles(x86)")
+                .unwrap_or_else(|_| "C:\\Program Files (x86)".into()),
+        )
+}
+
+fn add_to_path(path: &str) -> AppResult<()> {
+    let normalized = PathBuf::from(path).to_string_lossy().to_string();
+    let current = std::env::var("PATH").unwrap_or_default();
+    if !path_list_contains(&current, &normalized) {
+        let next = if current.trim().is_empty() {
+            normalized.clone()
+        } else {
+            format!("{}{}{}", current, path_separator(), normalized)
+        };
+        std::env::set_var("PATH", next);
+    }
+    persist_user_path(&normalized)
+}
+
+fn path_separator() -> &'static str {
+    if cfg!(target_os = "windows") {
+        ";"
+    } else {
+        ":"
+    }
+}
+
+fn path_list_contains(list: &str, target: &str) -> bool {
+    let target_norm = normalize_path_for_compare(target);
+    list.split(path_separator())
+        .map(normalize_path_for_compare)
+        .any(|entry| entry == target_norm)
+}
+
+fn normalize_path_for_compare(path: &str) -> String {
+    let trimmed = path.trim().trim_matches('"').trim_end_matches(['\\', '/']);
+    if cfg!(target_os = "windows") {
+        trimmed.to_ascii_lowercase()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+fn persist_user_path(path: &str) -> AppResult<()> {
+    #[cfg(target_os = "windows")]
+    {
+        use winreg::enums::{HKEY_CURRENT_USER, KEY_READ, KEY_WRITE};
+        use winreg::RegKey;
+
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        let (env, _) = hkcu.create_subkey_with_flags("Environment", KEY_READ | KEY_WRITE)?;
+        let current: String = env.get_value("Path").unwrap_or_default();
+        if !path_list_contains(&current, path) {
+            let next = if current.trim().is_empty() {
+                path.to_string()
+            } else {
+                format!("{};{}", current, path)
+            };
+            env.set_value("Path", &next)?;
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = path;
+    }
+
+    Ok(())
+}
+
+fn create_shim(value: &str) -> AppResult<()> {
+    let (name, target) = value
+        .split_once('=')
+        .ok_or_else(|| AppError::Install("createShim value must use name=target".into()))?;
+    let name = name.trim();
+    let target = target.trim();
+    if name.is_empty() || target.is_empty() {
+        return Err(AppError::Install("createShim value must use name=target".into()));
+    }
+
+    let shims = paths::shims_dir();
+    fs::create_dir_all(&shims)?;
+    if cfg!(target_os = "windows") {
+        let shim_path = shims.join(format!("{}.cmd", name.trim_end_matches(".cmd")));
+        fs::write(
+            shim_path,
+            format!("@echo off\r\n\"{}\" %*\r\n", target.replace('"', "")),
+        )?;
+    } else {
+        let shim_path = shims.join(name);
+        fs::write(
+            &shim_path,
+            format!("#!/bin/sh\nexec \"{}\" \"$@\"\n", target.replace('"', "")),
+        )?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&shim_path, fs::Permissions::from_mode(0o755))?;
+        }
+    }
+    add_to_path(&shims.to_string_lossy())
+}
+
 async fn validate_install(
     tool: &ToolDefinition,
     expected_version: &str,
@@ -896,9 +1188,8 @@ async fn validate_install(
     let command = tool
         .validate
         .command
-        .replace("{version}", expected_version)
-        .replace("{installedPath}", &installed_path.to_string_lossy())
-        .replace("{targetDir}", &installed_path.to_string_lossy());
+        .replace("{version}", expected_version);
+    let command = render_install_template(&command, installed_path);
     if command.trim().is_empty() {
         return Err(AppError::Install("Validation command is empty".into()));
     }
@@ -981,8 +1272,15 @@ async fn run_shell(command: &str) -> AppResult<(String, String)> {
         ("sh", vec!["-c".to_string(), command.to_string()])
     };
     let output = Command::new(program).args(&args).output().await?;
-    Ok((
-        String::from_utf8_lossy(&output.stdout).to_string(),
-        String::from_utf8_lossy(&output.stderr).to_string(),
-    ))
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    if !output.status.success() {
+        return Err(AppError::Install(format!(
+            "Command failed with exit code {:?}: {}{}",
+            output.status.code(),
+            stdout,
+            stderr
+        )));
+    }
+    Ok((stdout, stderr))
 }

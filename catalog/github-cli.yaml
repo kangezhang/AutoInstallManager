@@ -1,0 +1,33 @@
+schemaVersion: "1.0.0"
+id: "github-cli"
+name: "GitHub CLI"
+description: "GitHub command line interface for repositories, issues, pull requests, and releases"
+homepage: "https://cli.github.com"
+tags:
+  - github
+  - cli
+  - vcs
+  - devops
+
+versionSource:
+  type: githubReleases
+  repo: cli/cli
+
+assets:
+  - platform: win
+    arch: x64
+    url: "https://github.com/cli/cli/releases/download/v{version}/gh_{version}_windows_amd64.zip"
+    type: zip
+
+install:
+  type: archive
+  requiresAdmin: false
+  targetDir: "{managed}/github-cli/{version}"
+  postInstall:
+    - type: addToPath
+      value: "{targetDir}/gh_{version}_windows_amd64/bin"
+
+validate:
+  command: "\"{targetDir}\\gh_{version}_windows_amd64\\bin\\gh.exe\" --version"
+  parse: regex
+  pattern: "gh version ([\\d]+\\.[\\d]+\\.[\\d]+)"

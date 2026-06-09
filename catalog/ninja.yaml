@@ -1,0 +1,32 @@
+schemaVersion: "1.0.0"
+id: "ninja"
+name: "Ninja"
+description: "Small build system focused on speed"
+homepage: "https://ninja-build.org"
+tags:
+  - build
+  - cpp
+  - tooling
+
+versionSource:
+  type: githubReleases
+  repo: ninja-build/ninja
+
+assets:
+  - platform: win
+    arch: x64
+    url: "https://github.com/ninja-build/ninja/releases/download/v{version}/ninja-win.zip"
+    type: zip
+
+install:
+  type: archive
+  requiresAdmin: false
+  targetDir: "{managed}/ninja/{version}"
+  postInstall:
+    - type: addToPath
+      value: "{targetDir}"
+
+validate:
+  command: "\"{targetDir}\\ninja.exe\" --version"
+  parse: regex
+  pattern: "([\\d]+\\.[\\d]+\\.[\\d]+)"

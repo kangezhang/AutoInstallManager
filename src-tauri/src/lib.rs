@@ -1,4 +1,4 @@
-//! AutoInstallManager - Tauri Edition
+//! DevStack Manager - Tauri Edition
 //!
 //! Rust backend organized into focused modules:
 //! - `error`: unified error type for Tauri commands

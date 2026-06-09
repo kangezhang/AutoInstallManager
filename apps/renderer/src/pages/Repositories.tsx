@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   GitHubAccountSummary,
   GitHubCommitInfo,
   GitHubPullRequestInfo,
   GitHubRepoInfo,
   LocalRepoEntry,
-} from '@aim/shared';
+} from '@devstack/shared';
 import { LocalRepoMain, LocalRepoFooter, useLocalRepoState, type LocalBottomTab } from './LocalRepoView';
 import { formatDateTime, formatRelative, initialsOf, inferRepoNameFromPath } from './repo-utils';
 import { RepoInstallModal } from './RepoInstallModal';
@@ -22,7 +22,7 @@ type RepoContextMenu =
   | { kind: 'remote'; x: number; y: number; repo: GitHubRepoInfo }
   | { kind: 'local'; x: number; y: number; entry: LocalRepoEntry };
 
-const CACHE_KEY = 'aim.repositories.page.v3';
+const CACHE_KEY = 'devstack.repositories.page.v3';
 
 interface PageCache {
   accounts: GitHubAccountSummary[];
@@ -1562,7 +1562,7 @@ function PushDialog({
         </>
       }
     >
-      <Field label={t('repos.pushFolder')}>
+      <Field label={t('repos.pushFolderField')}>
         <div className="gf-path-row">
           <input
             value={folder}

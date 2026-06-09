@@ -3,6 +3,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { Catalog } from './pages/Catalog';
 import { Tasks } from './pages/Tasks';
+import { Todos } from './pages/Todos';
 import { Settings } from './pages/Settings';
 import { Repositories } from './pages/Repositories';
 import { RepositoryUpload } from './pages/RepositoryUpload';
@@ -23,6 +24,7 @@ function MainArea() {
         <Route path="/repository-install" element={<Navigate to="/repositories" replace />} />
         <Route path="/environment" element={<Navigate to="/catalog" replace />} />
         <Route path="/tasks" element={<Tasks />} />
+        <Route path="/todos" element={<Todos />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
     </main>

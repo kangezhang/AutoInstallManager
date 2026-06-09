@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { GitHubAccountSummary } from '@aim/shared';
+import type { GitHubAccountSummary } from '@devstack/shared';
 import { useI18n } from '../i18n';
 import { IconButton } from '../components/ui/IconButton';
 import './Settings.css';

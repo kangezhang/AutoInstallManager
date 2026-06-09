@@ -6,7 +6,7 @@ interface SettingsState {
   setLanguage: (language: Locale) => void;
 }
 
-const LANGUAGE_STORAGE_KEY = 'aim.language';
+const LANGUAGE_STORAGE_KEY = 'devstack.language';
 
 const normalizeLanguage = (value: string | null | undefined): Locale | null => {
   if (value === 'en-US' || value === 'zh-CN') {

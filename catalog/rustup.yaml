@@ -1,0 +1,39 @@
+schemaVersion: "1.0.0"
+id: "rustup"
+name: "Rustup"
+description: "Rust toolchain installer and version manager"
+homepage: "https://rustup.rs"
+tags:
+  - language
+  - runtime
+  - rust
+  - tauri
+
+versionSource:
+  type: githubReleases
+  repo: rust-lang/rust
+
+assets:
+  - platform: win
+    arch: x64
+    url: "https://win.rustup.rs/x86_64"
+    type: exe
+
+  - platform: win
+    arch: arm64
+    url: "https://win.rustup.rs/aarch64"
+    type: exe
+
+install:
+  type: exe
+  requiresAdmin: false
+  silentArgs: "-y --default-toolchain stable --profile default"
+  targetDir: "{home}/.cargo"
+  postInstall:
+    - type: addToPath
+      value: "{home}/.cargo/bin"
+
+validate:
+  command: "\"{home}\\.cargo\\bin\\rustc.exe\" --version"
+  parse: regex
+  pattern: "rustc ([\\d]+\\.[\\d]+\\.[\\d]+)"

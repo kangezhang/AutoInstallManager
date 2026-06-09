@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://aim.dev/schemas/tool-definition.schema.json",
+  "$id": "https://devstack.dev/schemas/tool-definition.schema.json",
   "title": "Tool Definition",
-  "description": "Schema for defining installable tools in AutoInstallManager",
+  "description": "Schema for defining installable tools in DevStack Manager",
   "type": "object",
   "required": [
     "schemaVersion",

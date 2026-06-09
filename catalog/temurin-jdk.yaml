@@ -1,0 +1,36 @@
+schemaVersion: "1.0.0"
+id: "temurin-jdk"
+name: "Eclipse Temurin JDK"
+description: "OpenJDK distribution from Adoptium for Java development"
+homepage: "https://adoptium.net/temurin/"
+tags:
+  - language
+  - runtime
+  - java
+  - jdk
+
+versionSource:
+  type: staticList
+  versions:
+    - "21.0.0"
+
+assets:
+  - platform: win
+    arch: x64
+    url: "https://api.adoptium.net/v3/installer/latest/21/ga/windows/x64/jdk/hotspot/normal/eclipse?project=jdk"
+    type: msi
+
+  - platform: win
+    arch: arm64
+    url: "https://api.adoptium.net/v3/installer/latest/21/ga/windows/aarch64/jdk/hotspot/normal/eclipse?project=jdk"
+    type: msi
+
+install:
+  type: msi
+  requiresAdmin: true
+  silentArgs: "ADDLOCAL=FeatureMain,FeatureEnvironment,FeatureJarFileRunWith,FeatureJavaHome /qn /norestart"
+  targetDir: "{PROGRAMFILES}/Eclipse Adoptium"
+
+validate:
+  command: "for /d %D in (\"{PROGRAMFILES}\\Eclipse Adoptium\\jdk-21*\") do if exist \"%D\\bin\\java.exe\" echo 21.0.0"
+  parse: exact

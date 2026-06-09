@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
-const APP_FOLDER: &str = "AutoInstallManager";
+const APP_FOLDER: &str = "DevStack Manager";
 
-/// User-writable app data: `%APPDATA%/AutoInstallManager` (Win) /
-/// `~/Library/Application Support/AutoInstallManager` (mac) /
-/// `~/.config/AutoInstallManager` (linux).
+/// User-writable app data: `%APPDATA%/DevStack Manager` (Win) /
+/// `~/Library/Application Support/DevStack Manager` (mac) /
+/// `~/.config/DevStack Manager` (linux).
 pub fn app_data_dir() -> PathBuf {
     dirs::config_dir()
         .or_else(dirs::data_dir)
@@ -13,8 +13,8 @@ pub fn app_data_dir() -> PathBuf {
 }
 
 /// Where managed installs live by default. We keep them under the user
-/// profile to avoid needing admin: `%LOCALAPPDATA%/Programs/AutoInstallManager`
-/// on Windows, `~/.local/share/AutoInstallManager/managed` elsewhere.
+/// profile to avoid needing admin: `%LOCALAPPDATA%/Programs/DevStack Manager`
+/// on Windows, `~/.local/share/DevStack Manager/managed` elsewhere.
 pub fn managed_dir() -> PathBuf {
     if cfg!(target_os = "windows") {
         dirs::data_local_dir()
@@ -54,7 +54,7 @@ pub fn keyfile_path() -> PathBuf {
 pub fn bundled_catalog_candidates(resource_dir: Option<PathBuf>) -> Vec<PathBuf> {
     let mut out: Vec<PathBuf> = Vec::new();
 
-    if let Ok(env_dir) = std::env::var("AIM_CATALOG_DIR") {
+    if let Ok(env_dir) = std::env::var("DEVSTACK_CATALOG_DIR") {
         let trimmed = env_dir.trim();
         if !trimmed.is_empty() {
             out.push(PathBuf::from(trimmed));

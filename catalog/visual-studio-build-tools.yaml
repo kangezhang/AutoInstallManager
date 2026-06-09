@@ -1,0 +1,37 @@
+schemaVersion: "1.0.0"
+id: "visual-studio-build-tools"
+name: "Visual Studio Build Tools"
+description: "Microsoft C++ build tools, MSVC, and Windows SDK for native development"
+homepage: "https://visualstudio.microsoft.com/downloads/"
+tags:
+  - compiler
+  - cpp
+  - windows
+  - rust
+  - native
+
+versionSource:
+  type: staticList
+  versions:
+    - "17.0.0"
+
+assets:
+  - platform: win
+    arch: x64
+    url: "https://aka.ms/vs/17/release/vs_BuildTools.exe"
+    type: exe
+
+  - platform: win
+    arch: arm64
+    url: "https://aka.ms/vs/17/release/vs_BuildTools.exe"
+    type: exe
+
+install:
+  type: exe
+  requiresAdmin: true
+  silentArgs: "--quiet --wait --norestart --nocache --installPath \"{PROGRAMFILES_X86}\\Microsoft Visual Studio\\2022\\BuildTools\" --add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.Windows11SDK.26100"
+  targetDir: "{PROGRAMFILES_X86}/Microsoft Visual Studio/2022/BuildTools"
+
+validate:
+  command: "if exist \"{PROGRAMFILES_X86}\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat\" echo 17.0.0"
+  parse: exact

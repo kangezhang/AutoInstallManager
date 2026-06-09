@@ -1,4 +1,4 @@
-import {
+﻿import {
   useCallback,
   useEffect,
   useState,
@@ -10,7 +10,7 @@ import type {
   LocalRepoEntry,
   LocalStatus,
   WorkingChange,
-} from '@aim/shared';
+} from '@devstack/shared';
 import { formatDateTime, formatRelative, initialsOf } from './repo-utils';
 
 export type LocalBottomTab = 'changes' | 'commit' | 'branches' | 'remotes';

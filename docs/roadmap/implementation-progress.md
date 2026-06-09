@@ -1,4 +1,4 @@
-# AutoInstallManager 实施进度
+# DevStack Manager 实施进度
 
 ## 当前状态
 
@@ -313,7 +313,7 @@
 ### 已创建文件（Week 1-4）
 
 ```
-AutoInstallManager/
+DevStack Manager/
 ├── .gitignore
 ├── .prettierrc
 ├── .eslintrc.js

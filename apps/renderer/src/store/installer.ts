@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { InstallTask } from '@aim/shared';
+import type { InstallTask } from '@devstack/shared';
 import { rendererStorage } from './persist-storage';
 
 interface InstallerState {
@@ -104,7 +104,7 @@ export const useInstallerStore = create<InstallerState>()(
       },
     }),
     {
-      name: 'aim.installer.store.v1',
+      name: 'devstack.installer.store.v1',
       storage: rendererStorage,
       partialize: (state) => ({
         tasks: state.tasks,

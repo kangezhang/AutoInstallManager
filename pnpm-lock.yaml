@@ -35,7 +35,7 @@ importers:
 
   apps/renderer:
     dependencies:
-      '@aim/shared':
+      '@devstack/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@tauri-apps/api':

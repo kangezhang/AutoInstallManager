@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { GitHubAccountSummary, ReleaseDiscoverResult, ToolDefinition } from '@aim/shared';
+import type { GitHubAccountSummary, ReleaseDiscoverResult, ToolDefinition } from '@devstack/shared';
 import { useCatalogStore, useInstallerStore, useScannerStore } from '../store';
 import { IconButton } from '../components/ui/IconButton';
 import './Catalog.css';

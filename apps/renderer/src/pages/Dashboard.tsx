@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useScannerStore, useCatalogStore } from '../store';
 import { useI18n } from '../i18n';
-import type { PlatformInfo } from '@aim/shared';
+import type { PlatformInfo } from '@devstack/shared';
 import { IconButton } from '../components/ui/IconButton';
 import './Dashboard.css';
 

@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://aim.dev/schemas/profile.schema.json",
+  "$id": "https://devstack.dev/schemas/profile.schema.json",
   "title": "Environment Profile",
-  "description": "Schema for environment profiles in AutoInstallManager",
+  "description": "Schema for environment profiles in DevStack Manager",
   "type": "object",
   "required": ["schemaVersion", "id", "name", "tools"],
   "properties": {

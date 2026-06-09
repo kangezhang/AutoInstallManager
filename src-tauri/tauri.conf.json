@@ -1,18 +1,18 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "AutoInstallManager",
+  "productName": "DevStack Manager",
   "version": "0.2.0",
-  "identifier": "com.aim.autoinstallmanager",
+  "identifier": "com.devstack.manager",
   "build": {
-    "beforeDevCommand": "pnpm --filter @aim/renderer dev",
+    "beforeDevCommand": "pnpm --filter @devstack/renderer dev",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "pnpm --filter @aim/renderer build",
+    "beforeBuildCommand": "pnpm --filter @devstack/renderer build",
     "frontendDist": "../apps/renderer/dist"
   },
   "app": {
     "windows": [
       {
-        "title": "AutoInstallManager",
+        "title": "DevStack Manager",
         "width": 1280,
         "height": 820,
         "minWidth": 960,
@@ -41,6 +41,6 @@
     "resources": ["../catalog"],
     "publisher": "kang",
     "shortDescription": "Manage developer tools like an app store",
-    "longDescription": "AutoInstallManager helps you discover, install, and manage developer tools on Windows, macOS and Linux."
+    "longDescription": "DevStack Manager helps you discover, install, and manage developer tools on Windows, macOS and Linux."
   }
 }

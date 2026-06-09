@@ -681,7 +681,7 @@ pub fn stage_all(registry: &Registry, id: &str) -> AppResult<()> {
     Ok(())
 }
 
-/// Unstage paths — reset their index entries to whatever HEAD points at.
+/// Unstage paths 鈥?reset their index entries to whatever HEAD points at.
 /// Falls back to `index.remove` if the repo has no commits yet.
 pub fn unstage_paths(registry: &Registry, id: &str, paths: Vec<String>) -> AppResult<()> {
     if paths.is_empty() {
@@ -705,7 +705,7 @@ pub fn unstage_paths(registry: &Registry, id: &str, paths: Vec<String>) -> AppRe
     Ok(())
 }
 
-/// Discard working-tree changes for the given paths — restores them to
+/// Discard working-tree changes for the given paths 鈥?restores them to
 /// match the index. New files (untracked) get deleted from disk.
 pub fn discard_paths(registry: &Registry, id: &str, paths: Vec<String>) -> AppResult<()> {
     if paths.is_empty() {
@@ -809,7 +809,7 @@ fn ensure_default_gitignore(repo: &Repository) -> AppResult<Vec<String>> {
     if !next.is_empty() && !next.ends_with('\n') {
         next.push('\n');
     }
-    next.push_str("\n# AutoInstallManager default ignores\n");
+    next.push_str("\n# DevStack Manager default ignores\n");
     for rule in &missing {
         next.push_str(rule);
         next.push('\n');
@@ -912,14 +912,14 @@ pub fn commit(registry: &Registry, id: &str, opts: CommitOptions) -> AppResult<C
             Some(parent) => {
                 if parent.tree_id() == tree_oid {
                     return Err(AppError::Validation(
-                        "no staged changes — nothing to commit".into(),
+                        "no staged changes 鈥?nothing to commit".into(),
                     ));
                 }
             }
             None => {
                 if tree.len() == 0 {
                     return Err(AppError::Validation(
-                        "index is empty — nothing to commit".into(),
+                        "index is empty 鈥?nothing to commit".into(),
                     ));
                 }
             }
@@ -1070,7 +1070,7 @@ pub fn push(
     let mut cmd = std::process::Command::new("git");
     cmd.current_dir(&workdir);
     // Inherit full environment (HOME, SSH_AUTH_SOCK, PATH, etc.)
-    // Disable interactive prompts — fail fast if credentials are missing
+    // Disable interactive prompts 鈥?fail fast if credentials are missing
     cmd.env("GIT_TERMINAL_PROMPT", "0");
     cmd.args(["push", "--set-upstream"]);
     if force {

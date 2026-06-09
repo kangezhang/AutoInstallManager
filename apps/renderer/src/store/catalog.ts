@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { ToolDefinition } from '@aim/shared';
+import type { ToolDefinition } from '@devstack/shared';
 import { rendererStorage } from './persist-storage';
 
 interface CatalogState {
@@ -58,7 +58,7 @@ export const useCatalogStore = create<CatalogState>()(
       },
     }),
     {
-      name: 'aim.catalog.store.v1',
+      name: 'devstack.catalog.store.v1',
       storage: rendererStorage,
       partialize: (state) => ({
         tools: state.tools,

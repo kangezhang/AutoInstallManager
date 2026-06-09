@@ -1,4 +1,4 @@
-# AutoInstallManager 实施总结
+# DevStack Manager 实施总结
 
 ## 已完成工作
 
@@ -145,7 +145,7 @@
 ## 项目结构
 
 ```
-AutoInstallManager/
+DevStack Manager/
 ├── .gitignore
 ├── .prettierrc
 ├── .eslintrc.js
