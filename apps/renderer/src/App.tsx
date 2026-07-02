@@ -7,6 +7,7 @@ import { Todos } from './pages/Todos';
 import { Settings } from './pages/Settings';
 import { Repositories } from './pages/Repositories';
 import { RepositoryUpload } from './pages/RepositoryUpload';
+import { DualNetBridge } from './pages/DualNetBridge';
 import './App.css';
 
 function MainArea() {
@@ -25,6 +26,7 @@ function MainArea() {
         <Route path="/environment" element={<Navigate to="/catalog" replace />} />
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/todos" element={<Todos />} />
+        <Route path="/dualnet" element={<DualNetBridge />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
     </main>

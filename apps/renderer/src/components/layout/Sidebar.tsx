@@ -35,6 +35,7 @@ export function Sidebar() {
         { to: '/catalog', label: t('sidebar.catalog'), icon: 'box' },
         { to: '/tasks', label: t('sidebar.tasks') || 'Tasks', icon: 'list' },
         { to: '/todos', label: t('sidebar.todos'), icon: 'check' },
+        { to: '/dualnet', label: 'DualNet', icon: 'network' },
       ],
     },
     {

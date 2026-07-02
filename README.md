@@ -166,10 +166,10 @@ pnpm tauri icon icon_installer.ico
 
 Windows 会对带有 `install`、`setup`、`manager` 等关键词的 exe 名称做安装器启发式检测。如果 manifest 没有明确声明权限级别，`dev-stack-manager.exe` 可能会被要求提权。
 
-当前项目通过 `src-tauri/windows-app-manifest.xml` 声明：
+当前项目通过 `src-tauri/windows-app-manifest.xml` 声明启动时请求管理员权限，避免网络配置相关操作进入页面后再手动提权：
 
 ```xml
-<requestedExecutionLevel level="asInvoker" uiAccess="false" />
+<requestedExecutionLevel level="requireAdministrator" uiAccess="false" />
 ```
 
 并在 `build.rs` 中通过 Tauri build API 注入：

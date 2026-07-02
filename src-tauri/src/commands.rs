@@ -4,6 +4,7 @@
 
 use crate::accounts;
 use crate::catalog::{self, ToolDefinition};
+use crate::dualnet;
 use crate::error::{AppError, AppResult};
 use crate::git_local;
 use crate::github;
@@ -372,6 +373,106 @@ pub async fn scan_tool(state: State<'_, AppState>, tool_id: String) -> AppResult
 #[tauri::command]
 pub fn scan_get_report(state: State<'_, AppState>) -> AppResult<Option<ScanReport>> {
     Ok(state.scanner.last_report())
+}
+
+// ---------------------------- dualnet bridge ----------------------------
+
+#[tauri::command]
+pub fn dualnet_get_default_config() -> dualnet::DualNetConfig {
+    dualnet::default_config()
+}
+
+#[tauri::command]
+pub async fn dualnet_scan_adapters() -> AppResult<dualnet::DualNetScanReport> {
+    tokio::task::spawn_blocking(dualnet::scan)
+        .await
+        .map_err(|e| AppError::Other(format!("dualnet scan task failed: {}", e)))?
+}
+
+#[tauri::command]
+pub async fn dualnet_get_nat_status() -> AppResult<dualnet::NatStatus> {
+    tokio::task::spawn_blocking(dualnet::nat_status)
+        .await
+        .map_err(|e| AppError::Other(format!("dualnet nat task failed: {}", e)))?
+}
+
+#[tauri::command]
+pub async fn dualnet_relaunch_as_admin() -> AppResult<dualnet::ElevationResult> {
+    tokio::task::spawn_blocking(dualnet::relaunch_as_admin)
+        .await
+        .map_err(|e| AppError::Other(format!("dualnet elevation task failed: {}", e)))?
+}
+
+#[tauri::command]
+pub fn dualnet_proxy_status(state: State<'_, AppState>) -> AppResult<dualnet::ProxyStatus> {
+    Ok(state.dualnet_proxy.status())
+}
+
+#[tauri::command]
+pub async fn dualnet_proxy_start(
+    state: State<'_, AppState>,
+    payload: dualnet::ProxyStartRequest,
+) -> AppResult<dualnet::ProxyActionResult> {
+    state.dualnet_proxy.start(payload).await
+}
+
+#[tauri::command]
+pub async fn dualnet_proxy_stop(
+    state: State<'_, AppState>,
+) -> AppResult<dualnet::ProxyActionResult> {
+    state.dualnet_proxy.stop().await
+}
+
+#[tauri::command]
+pub async fn dualnet_client_apply_proxy(
+    payload: dualnet::ClientProxyRequest,
+) -> AppResult<dualnet::ProxyStatus> {
+    tokio::task::spawn_blocking(move || dualnet::apply_client_proxy(payload))
+        .await
+        .map_err(|e| AppError::Other(format!("dualnet client proxy task failed: {}", e)))?
+}
+
+#[tauri::command]
+pub async fn dualnet_client_restore_proxy() -> AppResult<dualnet::ProxyStatus> {
+    tokio::task::spawn_blocking(dualnet::restore_client_proxy)
+        .await
+        .map_err(|e| AppError::Other(format!("dualnet client restore task failed: {}", e)))?
+}
+
+#[tauri::command]
+pub async fn dualnet_client_apply_ip_preset(
+    payload: dualnet::ClientIpModeRequest,
+) -> AppResult<dualnet::ClientIpModeResult> {
+    tokio::task::spawn_blocking(move || dualnet::apply_client_ip_preset(payload))
+        .await
+        .map_err(|e| AppError::Other(format!("dualnet client ip preset task failed: {}", e)))?
+}
+
+#[tauri::command]
+pub async fn dualnet_client_restore_dhcp(
+    payload: dualnet::ClientIpModeRequest,
+) -> AppResult<dualnet::ClientIpModeResult> {
+    tokio::task::spawn_blocking(move || dualnet::restore_client_dhcp(payload))
+        .await
+        .map_err(|e| AppError::Other(format!("dualnet client dhcp task failed: {}", e)))?
+}
+
+#[tauri::command]
+pub async fn dualnet_run_diagnostics(
+    role: Option<String>,
+) -> AppResult<dualnet::DualNetDiagnostics> {
+    tokio::task::spawn_blocking(move || dualnet::diagnostics(role))
+        .await
+        .map_err(|e| AppError::Other(format!("dualnet diagnostics task failed: {}", e)))?
+}
+
+#[tauri::command]
+pub async fn dualnet_validate_internal_adapter(
+    payload: dualnet::InternalAdapterSelection,
+) -> AppResult<dualnet::AdapterValidation> {
+    tokio::task::spawn_blocking(move || dualnet::validate_internal_adapter(payload))
+        .await
+        .map_err(|e| AppError::Other(format!("dualnet validation task failed: {}", e)))?
 }
 
 // ---------------------------- helpers ----------------------------

@@ -13,6 +13,7 @@
 pub mod accounts;
 pub mod catalog;
 pub mod commands;
+pub mod dualnet;
 pub mod error;
 pub mod git_local;
 pub mod github;
@@ -32,6 +33,7 @@ pub struct AppState {
     pub installer: Arc<installer::Installer>,
     pub scanner: Arc<scanner::Scanner>,
     pub git_registry: Arc<git_local::Registry>,
+    pub dualnet_proxy: Arc<dualnet::ProxyRuntime>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -95,6 +97,20 @@ pub fn run() {
             scan_start,
             scan_tool,
             scan_get_report,
+            // dualnet
+            dualnet_get_default_config,
+            dualnet_scan_adapters,
+            dualnet_get_nat_status,
+            dualnet_relaunch_as_admin,
+            dualnet_proxy_status,
+            dualnet_proxy_start,
+            dualnet_proxy_stop,
+            dualnet_client_apply_proxy,
+            dualnet_client_restore_proxy,
+            dualnet_client_apply_ip_preset,
+            dualnet_client_restore_dhcp,
+            dualnet_run_diagnostics,
+            dualnet_validate_internal_adapter,
             // git local
             git_local_list,
             git_local_pick_and_add,
