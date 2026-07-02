@@ -46,33 +46,13 @@ export const scanner = {
 
 // ---------- DualNet Bridge ----------
 export const dualnet = {
-  getDefaultConfig: () => call<unknown>('dualnet_get_default_config'),
   scanAdapters: () => call<unknown>('dualnet_scan_adapters'),
-  getNatStatus: () => call<unknown>('dualnet_get_nat_status'),
-  relaunchAsAdmin: () => call<unknown>('dualnet_relaunch_as_admin'),
-  proxyStatus: () => call<unknown>('dualnet_proxy_status'),
-  proxyStart: (bindIp: string, port?: number) =>
-    call<unknown>('dualnet_proxy_start', {
-      payload: { bindIp, port: port ?? null },
-    }),
-  proxyStop: () => call<unknown>('dualnet_proxy_stop'),
-  clientApplyProxy: (gatewayIp: string, port?: number) =>
-    call<unknown>('dualnet_client_apply_proxy', {
-      payload: { gatewayIp, port: port ?? null },
-    }),
-  clientRestoreProxy: () => call<unknown>('dualnet_client_restore_proxy'),
   clientApplyIpPreset: (interfaceIndex: number) =>
     call<unknown>('dualnet_client_apply_ip_preset', {
       payload: { interfaceIndex },
     }),
   clientRestoreDhcp: (interfaceIndex: number) =>
     call<unknown>('dualnet_client_restore_dhcp', {
-      payload: { interfaceIndex },
-    }),
-  runDiagnostics: (role?: string) =>
-    call<unknown>('dualnet_run_diagnostics', { role: role ?? null }),
-  validateInternalAdapter: (interfaceIndex: number) =>
-    call<unknown>('dualnet_validate_internal_adapter', {
       payload: { interfaceIndex },
     }),
 };

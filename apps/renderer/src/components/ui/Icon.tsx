@@ -2,6 +2,7 @@ import type { SVGProps } from 'react';
 
 export type IconName =
   | 'add'
+  | 'home'
   | 'refresh'
   | 'install'
   | 'details'
@@ -22,7 +23,10 @@ export type IconName =
   | 'console'
   | 'rollback'
   | 'copy'
-  | 'confirm';
+  | 'confirm'
+  | 'star'
+  | 'chevron'
+  | 'more';
 
 interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {
   name: IconName;
@@ -53,6 +57,14 @@ function renderIconPath(name: IconName) {
   switch (name) {
     case 'add':
       return <path d="M12 5v14M5 12h14" />;
+    case 'home':
+      return (
+        <>
+          <path d="M3 11.5L12 4l9 7.5" />
+          <path d="M5.5 10.5V20h13v-9.5" />
+          <path d="M9.5 20v-6h5v6" />
+        </>
+      );
     case 'refresh':
       return (
         <>
@@ -196,6 +208,20 @@ function renderIconPath(name: IconName) {
       );
     case 'confirm':
       return <path d="M20 6L9 17l-5-5" />;
+    case 'star':
+      return (
+        <path d="M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8-4.2-4.1 5.9-.9z" />
+      );
+    case 'chevron':
+      return <path d="M6 9l6 6 6-6" />;
+    case 'more':
+      return (
+        <>
+          <circle cx="5" cy="12" r="1" />
+          <circle cx="12" cy="12" r="1" />
+          <circle cx="19" cy="12" r="1" />
+        </>
+      );
     default:
       return <circle cx="12" cy="12" r="9" />;
   }

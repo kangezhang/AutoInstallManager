@@ -2,7 +2,6 @@ import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-d
 import { Sidebar } from './components/layout/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { Catalog } from './pages/Catalog';
-import { Tasks } from './pages/Tasks';
 import { Todos } from './pages/Todos';
 import { Settings } from './pages/Settings';
 import { Repositories } from './pages/Repositories';
@@ -24,7 +23,7 @@ function MainArea() {
         <Route path="/repository-upload" element={<RepositoryUpload />} />
         <Route path="/repository-install" element={<Navigate to="/repositories" replace />} />
         <Route path="/environment" element={<Navigate to="/catalog" replace />} />
-        <Route path="/tasks" element={<Tasks />} />
+        <Route path="/tasks" element={<Navigate to="/catalog" replace />} />
         <Route path="/todos" element={<Todos />} />
         <Route path="/dualnet" element={<DualNetBridge />} />
         <Route path="/settings" element={<Settings />} />
