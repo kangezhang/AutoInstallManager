@@ -51,6 +51,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // platform
             platform_get_info,
+            platform_relaunch_as_admin,
             // catalog
             catalog_load,
             catalog_list_tools,

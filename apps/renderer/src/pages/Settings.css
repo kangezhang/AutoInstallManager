@@ -97,12 +97,53 @@
   gap: 0.5rem;
 }
 
+.settings-admin-row {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.settings-admin-state {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.settings-admin-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.settings-admin-badge.active {
+  background: #d4edda;
+  color: #155724;
+}
+
+.settings-admin-badge.inactive {
+  background: #fff3cd;
+  color: #7a4b00;
+}
+
 .settings-btn {
   border: none;
   border-radius: 6px;
   padding: 0.45rem 0.8rem;
   font-size: 0.9rem;
   cursor: pointer;
+}
+
+.settings-action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .settings-btn:disabled {
@@ -213,5 +254,10 @@
 @media (max-width: 900px) {
   .settings-page {
     padding: 1rem;
+  }
+
+  .settings-admin-row {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

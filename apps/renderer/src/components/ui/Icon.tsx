@@ -24,6 +24,7 @@ export type IconName =
   | 'rollback'
   | 'copy'
   | 'confirm'
+  | 'admin'
   | 'star'
   | 'chevron'
   | 'more';
@@ -208,6 +209,13 @@ function renderIconPath(name: IconName) {
       );
     case 'confirm':
       return <path d="M20 6L9 17l-5-5" />;
+    case 'admin':
+      return (
+        <>
+          <path d="M12 3l7 3v5c0 4.5-2.9 8.4-7 10-4.1-1.6-7-5.5-7-10V6z" />
+          <path d="M9 12l2 2 4-5" />
+        </>
+      );
     case 'star':
       return (
         <path d="M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8-4.2-4.1 5.9-.9z" />

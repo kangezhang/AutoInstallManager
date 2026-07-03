@@ -16,12 +16,13 @@ interface ScannerState {
 
 export const useScannerStore = create<ScannerState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       report: null,
       scanning: false,
       error: null,
 
       startScan: async () => {
+        if (get().scanning) return;
         if (!window.electronAPI) {
           set({ error: 'Electron API not available', scanning: false });
           return;

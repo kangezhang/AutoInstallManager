@@ -22,6 +22,13 @@ pub fn platform_get_info() -> PlatformInfo {
     platform::detect()
 }
 
+#[tauri::command]
+pub fn platform_relaunch_as_admin(handle: AppHandle) -> AppResult<()> {
+    platform::relaunch_as_admin()?;
+    handle.exit(0);
+    Ok(())
+}
+
 // ---------------------------- catalog ----------------------------
 
 fn resolve_resource_dir(handle: &AppHandle) -> Option<std::path::PathBuf> {

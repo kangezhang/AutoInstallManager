@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { GitHubAccountSummary } from '@devstack/shared';
+import type { GitHubAccountSummary, PlatformInfo } from '@devstack/shared';
 import { useI18n } from '../i18n';
 import { IconButton } from '../components/ui/IconButton';
+import { Icon } from '../components/ui/Icon';
 import './Settings.css';
 
 export function Settings() {
@@ -13,6 +14,9 @@ export function Settings() {
   const [githubBusy, setGitHubBusy] = useState(false);
   const [githubError, setGitHubError] = useState<string | null>(null);
   const [githubMessage, setGitHubMessage] = useState<string | null>(null);
+  const [platformInfo, setPlatformInfo] = useState<PlatformInfo | null>(null);
+  const [platformError, setPlatformError] = useState<string | null>(null);
+  const [adminBusy, setAdminBusy] = useState(false);
 
   const loadGitHubAccounts = useCallback(async (preferredSelectedId?: string) => {
     if (!window.electronAPI?.githubAccount) {
@@ -46,6 +50,43 @@ export function Settings() {
       setGitHubError(error instanceof Error ? error.message : 'Failed to load GitHub accounts');
     });
   }, [loadGitHubAccounts]);
+
+  const loadPlatformInfo = useCallback(async () => {
+    if (!window.electronAPI?.platform) {
+      setPlatformError('Electron API is not available');
+      return;
+    }
+
+    setPlatformError(null);
+    try {
+      const data = (await window.electronAPI.platform.getInfo()) as PlatformInfo;
+      setPlatformInfo(data);
+    } catch (error) {
+      setPlatformError(error instanceof Error ? error.message : 'Failed to load platform info');
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPlatformInfo().catch((error) => {
+      setPlatformError(error instanceof Error ? error.message : 'Failed to load platform info');
+    });
+  }, [loadPlatformInfo]);
+
+  const handleRelaunchAsAdmin = async () => {
+    if (!window.electronAPI?.platform || platformInfo?.isAdmin) return;
+
+    const confirmed = window.confirm(t('settings.admin.confirm'));
+    if (!confirmed) return;
+
+    setAdminBusy(true);
+    setPlatformError(null);
+    try {
+      await window.electronAPI.platform.relaunchAsAdmin();
+    } catch (error) {
+      setPlatformError(error instanceof Error ? error.message : 'Failed to restart as administrator');
+      setAdminBusy(false);
+    }
+  };
 
   const handleGitHubConnectWithBrowser = async () => {
     if (!window.electronAPI?.githubAccount) return;
@@ -141,6 +182,35 @@ export function Settings() {
           {t('settings.currentLanguageLabel')}:{' '}
           {language === 'zh-CN' ? t('settings.currentLanguage.zh') : t('settings.currentLanguage.en')}
         </p>
+      </section>
+
+      <section className="settings-card settings-card-wide">
+        <h2>{t('settings.admin.title')}</h2>
+        <p>{t('settings.admin.description')}</p>
+
+        <div className="settings-admin-row">
+          <div className="settings-admin-state">
+            <span className={`settings-admin-badge ${platformInfo?.isAdmin ? 'active' : 'inactive'}`}>
+              {platformInfo?.isAdmin ? t('settings.admin.active') : t('settings.admin.inactive')}
+            </span>
+            <span>{t('settings.admin.statusLabel')}</span>
+          </div>
+          <button
+            type="button"
+            className="settings-btn settings-btn-primary settings-action-button"
+            onClick={handleRelaunchAsAdmin}
+            disabled={adminBusy || !platformInfo || platformInfo.isAdmin}
+          >
+            <Icon name="admin" size={16} />
+            <span>{t('settings.admin.restart')}</span>
+          </button>
+        </div>
+
+        {platformError && (
+          <p className="settings-account-error">
+            {t('settings.github.errorPrefix')}: {platformError}
+          </p>
+        )}
       </section>
 
       <section className="settings-card settings-card-wide">

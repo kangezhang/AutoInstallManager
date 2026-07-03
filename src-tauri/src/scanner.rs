@@ -12,6 +12,9 @@ use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use tauri::Emitter;
 
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DetectedTool {
@@ -164,7 +167,12 @@ async fn run_shell(command: &str) -> AppResult<(String, String)> {
     } else {
         ("sh", vec!["-c".to_string(), command.to_string()])
     };
-    let output = Command::new(program).args(&args).output().await?;
+    let mut shell = Command::new(program);
+    shell.args(&args);
+    #[cfg(target_os = "windows")]
+    shell.creation_flags(CREATE_NO_WINDOW);
+
+    let output = shell.output().await?;
     Ok((
         String::from_utf8_lossy(&output.stdout).to_string(),
         String::from_utf8_lossy(&output.stderr).to_string(),

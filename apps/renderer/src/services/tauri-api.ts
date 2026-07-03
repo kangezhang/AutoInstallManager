@@ -19,6 +19,7 @@ const call = <T>(cmd: string, args?: Json): Promise<T> =>
 // ---------- Platform ----------
 export const platform = {
   getInfo: () => call<unknown>('platform_get_info'),
+  relaunchAsAdmin: () => call<void>('platform_relaunch_as_admin'),
 };
 
 // ---------- Catalog ----------

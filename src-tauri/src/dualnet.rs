@@ -4,6 +4,12 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 use std::process::Command;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 const CLIENT_PRESET_IP: &str = "192.168.209.253";
 const CLIENT_PRESET_MASK: &str = "255.255.255.0";
 const CLIENT_PRESET_GATEWAY: &str = "192.168.209.111";
@@ -291,17 +297,19 @@ fn ps_quote(value: &str) -> String {
 }
 
 fn run_powershell(script: &str) -> AppResult<String> {
-    let output = Command::new("powershell.exe")
-        .args([
-            "-NoProfile",
-            "-NonInteractive",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-Command",
-            script,
-        ])
-        .output()
-        .map_err(AppError::Io)?;
+    let mut command = Command::new("powershell.exe");
+    command.args([
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        script,
+    ]);
+    #[cfg(target_os = "windows")]
+    command.creation_flags(CREATE_NO_WINDOW);
+
+    let output = command.output().map_err(AppError::Io)?;
 
     if !output.status.success() {
         return Err(AppError::Other(format!(

@@ -20,6 +20,15 @@ export const translations = {
     'settings.currentLanguageLabel': 'Current language',
     'settings.currentLanguage.en': 'English',
     'settings.currentLanguage.zh': '\u7b80\u4f53\u4e2d\u6587',
+    'settings.admin.title': 'Administrator Rights',
+    'settings.admin.description':
+      'Keep the app in normal mode by default. Restart with administrator rights only when system-level networking or installer operations need it.',
+    'settings.admin.statusLabel': 'Current launch mode',
+    'settings.admin.active': 'Administrator',
+    'settings.admin.inactive': 'Standard',
+    'settings.admin.restart': 'Restart as administrator',
+    'settings.admin.confirm':
+      'The app will open a Windows UAC prompt and restart with administrator rights. Continue?',
     'settings.github.title': 'GitHub Accounts',
     'settings.github.description':
       'Manage global GitHub accounts for release upload. You can set a default account and stop entering token repeatedly.',
@@ -317,6 +326,15 @@ export const translations = {
     'settings.currentLanguageLabel': '\u5f53\u524d\u8bed\u8a00',
     'settings.currentLanguage.en': 'English',
     'settings.currentLanguage.zh': '\u7b80\u4f53\u4e2d\u6587',
+    'settings.admin.title': '\u7ba1\u7406\u5458\u6743\u9650',
+    'settings.admin.description':
+      '\u5e94\u7528\u9ed8\u8ba4\u4ee5\u666e\u901a\u6743\u9650\u8fd0\u884c\u3002\u53ea\u5728\u9700\u8981\u4fee\u6539\u7cfb\u7edf\u7f51\u7edc\u6216\u5b89\u88c5\u76f8\u5173\u64cd\u4f5c\u65f6\uff0c\u518d\u4ece\u8fd9\u91cc\u5207\u6362\u5230\u7ba1\u7406\u5458\u6a21\u5f0f\u3002',
+    'settings.admin.statusLabel': '\u5f53\u524d\u542f\u52a8\u6a21\u5f0f',
+    'settings.admin.active': '\u7ba1\u7406\u5458',
+    'settings.admin.inactive': '\u666e\u901a\u6743\u9650',
+    'settings.admin.restart': '\u4ee5\u7ba1\u7406\u5458\u8eab\u4efd\u91cd\u542f',
+    'settings.admin.confirm':
+      '\u5c06\u6253\u5f00 Windows UAC \u63d0\u793a\uff0c\u5e76\u4ee5\u7ba1\u7406\u5458\u6743\u9650\u91cd\u542f\u5e94\u7528\u3002\u662f\u5426\u7ee7\u7eed\uff1f',
     'settings.github.title': 'GitHub \u8d26\u6237',
     'settings.github.description':
       '\u7528\u4e8e\u7edf\u4e00\u7ba1\u7406 Release \u4e0a\u4f20\u6240\u9700\u7684 GitHub \u8d26\u6237\u3002\u53ef\u8bbe\u7f6e\u9ed8\u8ba4\u8d26\u6237\uff0c\u907f\u514d\u91cd\u590d\u8f93\u5165 Token\u3002',
